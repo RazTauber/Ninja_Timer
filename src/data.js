@@ -1,7 +1,22 @@
+/**
+ * SECURITY POLICY — LOCAL-ONLY DATA STORAGE
+ *
+ * All competition data (times, competitor names, obstacle names) is CONFIDENTIAL.
+ * This module enforces strictly local persistence:
+ *   - Storage: browser localStorage ONLY (keys prefixed "ninja_timer_")
+ *   - Export: local file download via Blob URL — never uploaded
+ *   - Network: ZERO outbound requests with app data (enforced by CSP)
+ *
+ * DO NOT add any analytics, telemetry, cloud sync, or external API calls.
+ * DO NOT transmit any competition data over the network.
+ */
+
 const STORAGE_KEYS = {
   OBSTACLES: 'ninja_timer_obstacles',
   RUNS: 'ninja_timer_runs',
   COMP_DATE: 'ninja_timer_comp_date',
+  HEAT_NUMBER: 'ninja_timer_heat_number',
+  HEAT_CACHE: 'ninja_timer_heat_cache',
 };
 
 const ALL_OBSTACLES = [
@@ -99,6 +114,43 @@ function saveCompDate(date) {
   localStorage.setItem(STORAGE_KEYS.COMP_DATE, date);
 }
 
+function loadHeatNumber() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.HEAT_NUMBER);
+    return raw ? parseInt(raw, 10) : 1;
+  } catch {
+    return 1;
+  }
+}
+
+function saveHeatNumber(num) {
+  localStorage.setItem(STORAGE_KEYS.HEAT_NUMBER, String(num));
+}
+
+function loadHeatCache() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.HEAT_CACHE);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveHeatCache(cache) {
+  localStorage.setItem(STORAGE_KEYS.HEAT_CACHE, JSON.stringify(cache));
+}
+
+function getNextHeatNumber(date) {
+  const cache = loadHeatCache();
+  return (cache[date] || 0) + 1;
+}
+
+function registerHeat(date, heatNumber) {
+  const cache = loadHeatCache();
+  cache[date] = Math.max(cache[date] || 0, heatNumber);
+  saveHeatCache(cache);
+}
+
 function loadRuns() {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.RUNS);
@@ -123,12 +175,16 @@ function formatTime(ms) {
   const totalSeconds = Math.floor(ms / 1000);
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
-  const millis = ms % 1000;
-  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}.${String(millis).padStart(3, '0')}`;
+  const centiseconds = Math.floor((ms % 1000) / 10);
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}:${String(centiseconds).padStart(2, '0')}`;
 }
 
 function formatSeconds(ms) {
-  return (ms / 1000).toFixed(2);
+  const totalSeconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  const centiseconds = Math.floor((ms % 1000) / 10);
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}:${String(centiseconds).padStart(2, '0')}`;
 }
 
 function formatHebrewDate(dateStr) {
@@ -168,13 +224,20 @@ function wallResultDisplay(run) {
   return '-';
 }
 
-function downloadRunsCSV(runs, obstacles) {
-  const headers = ['תאריך', 'דירוג', 'סדר', 'מתחרה', ...obstacles.map(o => obstacleLabel(o)), 'זמן נפילה', 'סיים?', 'תוצאת קיר'];
+function getRankTime(run) {
+  if (!run.dnf) return run.totalTime;
+  const passEvents = run.events.filter(e => e.type === 'PASSED');
+  return passEvents.length > 0 ? passEvents[passEvents.length - 1].time : 0;
+}
 
-  // Compute time-based rank for each run (finishers before DNFs, both by totalTime asc)
+function downloadRunsCSV(runs, obstacles) {
+  const currentHeat = loadHeatNumber();
+  const headers = ['תאריך', 'מקצה', 'דירוג', 'סדר', 'מתחרה', ...obstacles.map(o => obstacleLabel(o)), 'זמן זינוק', 'זמן נפילה', 'סיים?', 'תוצאת קיר'];
+
   const sortedForRank = [...runs].sort((a, b) => {
     if (a.dnf && !b.dnf) return 1;
     if (!a.dnf && b.dnf) return -1;
+    if (a.dnf && b.dnf) return getRankTime(a) - getRankTime(b);
     return a.totalTime - b.totalTime;
   });
   const rankMap = new Map(sortedForRank.map((r, i) => [r, i + 1]));
@@ -186,12 +249,15 @@ function downloadRunsCSV(runs, obstacles) {
     const obstacleTimes = {};
     for (const event of run.events) {
       if (event.type === 'PASSED' && event.obstacle) {
-        obstacleTimes[event.obstacle] = (event.time / 1000).toFixed(2);
+        obstacleTimes[event.obstacle] = formatSeconds(event.time);
       }
     }
 
     const fallEvent = run.events.find(e => e.type === 'FALL');
-    const fallTime = fallEvent ? (fallEvent.time / 1000).toFixed(2) : '-';
+    const fallStartTime = fallEvent
+      ? formatSeconds(fallEvent.obstacleStartTime ?? getRankTime(run))
+      : '-';
+    const fallTime = fallEvent ? formatSeconds(fallEvent.time) : '-';
     const finished = obstacles.every(o => o in obstacleTimes);
 
     const order = run.startOrder ?? (runs.indexOf(run) + 1);
@@ -199,34 +265,35 @@ function downloadRunsCSV(runs, obstacles) {
 
     return [
       dateStr,
+      run.heatNumber ?? currentHeat,
       rank,
       order,
       run.contestantName,
       ...obstacles.map(o => {
         if (obstacleTimes[o]) return obstacleTimes[o];
         const fell = run.events.find(e => e.type === 'FALL' && e.obstacle === o);
-        return fell ? (fell.time / 1000).toFixed(2) + ' (נפילה)' : '-';
+        return fell ? formatSeconds(fell.time) + ' (נפילה)' : '-';
       }),
+      fallStartTime,
       fallTime,
       finished ? 'כן' : 'לא',
       wallResultDisplay(run),
     ];
   });
 
-  // Build an HTML table that Excel opens with full RTL + design-system branding
   const headerHtml = headers.map(h => `<th>${esc(h)}</th>`).join('');
   const rowsHtml = dataRows.map(row =>
     `<tr>${row.map((cell, i) => {
       const str = String(cell);
       let cls = '';
-      if (i === 1) cls = 'cell-rank';
-      else if (i === 2) cls = 'cell-order';
+      if (i === 2) cls = 'cell-rank';
+      else if (i === 3) cls = 'cell-order';
       else if (str === '-') cls = 'cell-dash';
       else if (str.includes('נפילה')) cls = 'cell-fall';
       else if (i === row.length - 1 && str.includes('MEGA')) cls = 'cell-wall-mega';
       else if (i === row.length - 1 && str.includes('Wall')) cls = 'cell-wall-pass';
       else if (i === row.length - 1 && str.includes('Failed')) cls = 'cell-wall-fail';
-      else if (i === row.length - 3 && str !== '-') cls = 'cell-finish';
+      else if (i === row.length - 2 && str !== '-') cls = 'cell-finish';
       return `<td class="${cls}">${esc(str)}</td>`;
     }).join('')}</tr>`
   ).join('\n');
@@ -290,7 +357,7 @@ function downloadRunsCSV(runs, obstacles) {
   </style>
 </head>
 <body>
-<h2>נינג'ה ישראל — תוצאות תחרות</h2>
+<h2>נינג'ה ישראל — תוצאות תחרות — מקצה ${currentHeat}</h2>
 <table>
   <thead><tr>${headerHtml}</tr></thead>
   <tbody>${rowsHtml}</tbody>
@@ -303,7 +370,7 @@ function downloadRunsCSV(runs, obstacles) {
 
   const today = new Date();
   const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-  const filename = `תוצאות-נינגה-${dateStr}.xls`;
+  const filename = `תוצאות-נינגה-${dateStr}-מקצה-${currentHeat}.xls`;
 
   const a = document.createElement('a');
   a.href = url;
@@ -326,6 +393,12 @@ export {
   saveObstacles,
   loadCompDate,
   saveCompDate,
+  loadHeatNumber,
+  saveHeatNumber,
+  loadHeatCache,
+  saveHeatCache,
+  getNextHeatNumber,
+  registerHeat,
   loadRuns,
   saveRun,
   clearRuns,
@@ -333,7 +406,9 @@ export {
   formatSeconds,
   formatHebrewDate,
   getTodayISO,
+  getRankTime,
   normalizeWallResult,
   wallResultDisplay,
   downloadRunsCSV,
+  esc,
 };

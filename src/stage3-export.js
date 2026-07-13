@@ -1,4 +1,4 @@
-import { loadRuns, clearRuns, loadObstacles, formatSeconds, downloadRunsCSV } from './data.js';
+import { loadRuns, clearRuns, loadObstacles, formatSeconds, downloadRunsCSV, normalizeWallResult, wallResultDisplay, esc } from './data.js';
 
 export function renderExport(app, onBack) {
   const runs = loadRuns();
@@ -18,15 +18,17 @@ export function renderExport(app, onBack) {
             const passed = run.events.filter(e => e.type === 'PASSED');
             const falls = run.events.filter(e => e.type === 'FALL');
             const finished = passed.length === obstacles.length;
+            const wallDisplay = finished ? wallResultDisplay(run) : '';
             return `
             <div class="run-card">
               <div class="run-card-header">
-                <span class="run-card-name">${run.contestantName}</span>
-                <span class="run-card-time ${finished ? '' : 'dnf-label'}">${finished ? formatSeconds(run.totalTime) + " שנ'" : 'נפילה'}</span>
+                <span class="run-card-name">${esc(run.contestantName)}</span>
+                <span class="run-card-time ${finished ? '' : 'dnf-label'}">${finished ? formatSeconds(run.totalTime) : 'נפילה'}</span>
               </div>
               <div class="run-card-stats">
                 ${passed.length}/${obstacles.length} מכשולים
                 ${falls.length > 0 ? `· ${falls.length} ${falls.length === 1 ? 'נפילה' : 'נפילות'}` : ''}
+                ${wallDisplay && wallDisplay !== '-' ? `· ${wallDisplay}` : ''}
               </div>
             </div>
           `}).join('')}

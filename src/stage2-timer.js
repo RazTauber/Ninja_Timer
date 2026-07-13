@@ -1,4 +1,4 @@
-import { saveRun, loadRuns, clearRuns, formatTime, formatSeconds, formatHebrewDate, loadCompDate, downloadRunsCSV, WALL_RESULTS, normalizeWallResult, OBSTACLE_EN } from './data.js';
+import { saveRun, loadRuns, clearRuns, formatTime, formatSeconds, formatHebrewDate, loadCompDate, downloadRunsCSV, WALL_RESULTS, normalizeWallResult, OBSTACLE_EN, loadHeatNumber, getRankTime, esc } from './data.js';
 
 const HOLD_DURATION = 1200;
 
@@ -46,6 +46,7 @@ export function renderTimer(app, obstacles, onFinish) {
     const runs = loadRuns();
     const compDate = loadCompDate();
     const dateLabel = formatHebrewDate(compDate) || 'תחרות';
+    const heatNum = loadHeatNumber();
 
     app.innerHTML = `
       <div class="comp-layout">
@@ -56,7 +57,7 @@ export function renderTimer(app, obstacles, onFinish) {
               <span>חדש</span>
             </button>
             <div class="header-info">
-              <span class="header-date">${dateLabel}</span>
+              <span class="header-date">${dateLabel} · מקצה ${heatNum}</span>
               <span class="header-stats">${obstacles.length} מכשולים · ${runs.length} ריצות</span>
             </div>
           </div>
@@ -133,13 +134,13 @@ export function renderTimer(app, obstacles, onFinish) {
           המתחרה הבא
         </div>
         <div class="name-row">
-          <input type="text" class="name-input" placeholder="הזינו שם מתחרה..." value="${contestantName}" autofocus />
+          <input type="text" class="name-input" placeholder="הזינו שם מתחרה..." value="${esc(contestantName)}" autofocus />
           <button class="btn-start-run" ${contestantName.length === 0 ? 'disabled' : ''}>
             <span class="card-icon">🚩</span>
             התחלת ריצה
           </button>
         </div>
-        <p class="input-hint">השעון מתחיל ברגע התחלת הריצה. לחצו Enter או רווח כדי להתחיל.</p>
+        <p class="input-hint">השעון מתחיל ברגע התחלת הריצה. לחצו Enter כדי להתחיל.</p>
       </div>
     `;
 
@@ -158,7 +159,7 @@ export function renderTimer(app, obstacles, onFinish) {
     };
 
     input.addEventListener('keydown', (e) => {
-      if ((e.key === 'Enter' || e.key === ' ') && contestantName.length > 0) {
+      if (e.key === 'Enter' && contestantName.length > 0) {
         e.preventDefault();
         startHandler();
       }
@@ -204,7 +205,7 @@ export function renderTimer(app, obstacles, onFinish) {
         <div class="timer-top">
           <div class="timer-info">
             <span class="timer-status">${run.wallUnlocked ? '🏆 הקיר פתוח!' : '⏱ בריצה'}</span>
-            <span class="timer-player">${run.contestantName}</span>
+            <span class="timer-player">${esc(run.contestantName)}</span>
           </div>
           <div class="timer-display">
             <span class="timer-value">${formatTime(elapsed)}</span>
@@ -235,10 +236,10 @@ export function renderTimer(app, obstacles, onFinish) {
 
             if (isPassed) {
               statusClass = 'obstacle-passed';
-              content = `<span class="split-badge">✓ ${formatSeconds(passEvent.time)} שנ'</span>`;
+              content = `<span class="split-badge">✓ ${formatSeconds(passEvent.time)}</span>`;
             } else if (isFallen) {
               statusClass = 'obstacle-fallen';
-              content = `<span class="fall-badge">✕ נפילה ${formatSeconds(fallEvent.time)} שנ'</span>`;
+              content = `<span class="fall-badge">✕ נפילה ${formatSeconds(fallEvent.time)}</span>`;
             } else if (isCurrent) {
               statusClass = 'obstacle-current';
               const isLast = i === obstacles.length - 1;
@@ -306,22 +307,31 @@ export function renderTimer(app, obstacles, onFinish) {
 
   function handleWallResult(result) {
     if (!activeRun) return;
-    const courseTime = activeRun.wallPendingTime;
-    const wallResultTime = Date.now() - activeRun.startTime;
+    const elapsed = activeRun.wallPendingTime;
 
     activeRun.events.push({
-      time: wallResultTime,
+      time: elapsed,
       type: 'WALL_RESULT',
       obstacle: null,
       wallResult: result,
-      courseTime,
     });
 
-    finishRun(courseTime, result, wallResultTime);
+    finishRun(elapsed, result);
   }
 
   function attachTimerEvents(section) {
     if (!activeRun) return;
+
+    const timerCard = section.querySelector('.timer-card');
+    if (timerCard) {
+      timerCard.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          if (e.target.closest('.btn-pass') || e.target.closest('.btn-fall')) {
+            e.preventDefault();
+          }
+        }
+      });
+    }
 
     const wallMegaBtn = section.querySelector('.btn-wall-mega');
     if (wallMegaBtn) {
@@ -341,8 +351,8 @@ export function renderTimer(app, obstacles, onFinish) {
       const isLast = idx === obstacles.length - 1;
 
       if (isLast) {
-        setupHoldButton(btn, () => {
-          handlePass(idx);
+        setupHoldButton(btn, (pressStart) => {
+          handlePass(idx, pressStart);
         });
       } else {
         btn.addEventListener('click', () => {
@@ -429,12 +439,15 @@ export function renderTimer(app, obstacles, onFinish) {
     btn.addEventListener('touchstart', (e) => e.preventDefault(), { passive: false });
   }
 
-  function handlePass(obstacleIndex) {
+  function handlePass(obstacleIndex, pressStart) {
     if (!activeRun) return;
-    const elapsed = Date.now() - activeRun.startTime;
+    const elapsed = (pressStart ?? Date.now()) - activeRun.startTime;
     const obstacleName = obstacles[obstacleIndex];
 
-    activeRun.events.push({ time: elapsed, type: 'PASSED', obstacle: obstacleName });
+    const passEvents = activeRun.events.filter(e => e.type === 'PASSED');
+    const obstacleStartTime = passEvents.length > 0 ? passEvents[passEvents.length - 1].time : 0;
+
+    activeRun.events.push({ time: elapsed, type: 'PASSED', obstacle: obstacleName, obstacleStartTime });
     activeRun.currentObstacleIndex++;
 
     if (activeRun.currentObstacleIndex >= obstacles.length) {
@@ -464,7 +477,10 @@ export function renderTimer(app, obstacles, onFinish) {
     const elapsed = (pressStart ?? Date.now()) - activeRun.startTime;
     const obstacleName = obstacles[obstacleIndex];
 
-    activeRun.events.push({ time: elapsed, type: 'FALL', obstacle: obstacleName });
+    const passEvents = activeRun.events.filter(e => e.type === 'PASSED');
+    const obstacleStartTime = passEvents.length > 0 ? passEvents[passEvents.length - 1].time : 0;
+
+    activeRun.events.push({ time: elapsed, type: 'FALL', obstacle: obstacleName, obstacleStartTime });
 
     clearInterval(activeRun.timerInterval);
     activeRun.timerInterval = null;
@@ -478,6 +494,7 @@ export function renderTimer(app, obstacles, onFinish) {
       events: [...activeRun.events],
       totalTime: elapsed,
       dnf: true,
+      heatNumber: loadHeatNumber(),
     };
     saveRun(run);
 
@@ -489,7 +506,7 @@ export function renderTimer(app, obstacles, onFinish) {
     renderScoreboard();
   }
 
-  function finishRun(totalTime, wallResult, wallTime) {
+  function finishRun(totalTime, wallResult) {
     if (!activeRun) return;
 
     clearInterval(activeRun.timerInterval);
@@ -504,9 +521,9 @@ export function renderTimer(app, obstacles, onFinish) {
       totalTime,
       dnf: false,
       wallResult,
-      wallTime: wallTime || null,
       wallAttempts: 3,
       megaWall: wallResult === WALL_RESULTS.MEGA_WALL,
+      heatNumber: loadHeatNumber(),
     };
     saveRun(run);
 
@@ -537,25 +554,16 @@ export function renderTimer(app, obstacles, onFinish) {
 
     if (activeRun.wallUnlocked) {
       if (lastEvent.type === 'WALL_UNLOCKED') {
-        activeRun.wallUnlocked = false;
-        activeRun.wallPendingTime = null;
-        activeRun.wallResult = null;
-        activeRun.finished = false;
-        if (!activeRun.timerInterval) {
-          activeRun.timerInterval = setInterval(() => {
-            const tv = document.querySelector('.timer-value');
-            if (tv && activeRun) {
-              tv.textContent = formatTime(Date.now() - activeRun.startTime);
-            }
-          }, 16);
+        // Also pop the preceding PASSED event that triggered the wall unlock
+        const prevEvent = activeRun.events[activeRun.events.length - 1];
+        if (prevEvent && prevEvent.type === 'PASSED') {
+          activeRun.events.pop();
+          activeRun.currentObstacleIndex = Math.max(0, activeRun.currentObstacleIndex - 1);
         }
-      } else if (lastEvent.type === 'PASSED') {
         activeRun.wallUnlocked = false;
         activeRun.wallPendingTime = null;
         activeRun.wallResult = null;
         activeRun.finished = false;
-        const wallEvent = activeRun.events.findIndex(e => e.type === 'WALL_UNLOCKED');
-        if (wallEvent !== -1) activeRun.events.splice(wallEvent, 1);
         if (!activeRun.timerInterval) {
           activeRun.timerInterval = setInterval(() => {
             const tv = document.querySelector('.timer-value');
@@ -606,6 +614,7 @@ export function renderTimer(app, obstacles, onFinish) {
     const sortedRuns = [...runs].sort((a, b) => {
       if (a.dnf && !b.dnf) return 1;
       if (!a.dnf && b.dnf) return -1;
+      if (a.dnf && b.dnf) return getRankTime(a) - getRankTime(b);
       return a.totalTime - b.totalTime;
     });
 
@@ -652,7 +661,7 @@ export function renderTimer(app, obstacles, onFinish) {
                     <tr class="${isDNF ? 'row-dnf' : ''}">
                       <td class="td-rank">${medal}</td>
                       <td class="td-order">${startOrder}</td>
-                      <td class="td-name">${run.contestantName}</td>
+                      <td class="td-name">${esc(run.contestantName)}</td>
                       ${obstacles.map(o => {
                         const t = obstacleTimes[o];
                         if (t !== undefined) {
@@ -672,7 +681,7 @@ export function renderTimer(app, obstacles, onFinish) {
                         if (wr === WALL_RESULTS.FAILED) return '<td class="td-wall td-wall-fail">✕</td>';
                         return '<td class="td-wall td-empty">-</td>';
                       })()}
-                      <td class="td-total ${isDNF ? 'td-dnf' : ''}">${formatSeconds(run.totalTime)} שנ'</td>
+                      <td class="td-total ${isDNF ? 'td-dnf' : ''}">${formatSeconds(run.totalTime)}</td>
                     </tr>
                   `;
                 }).join('')}

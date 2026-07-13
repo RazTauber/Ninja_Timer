@@ -1,9 +1,10 @@
-import { ALL_OBSTACLES, OBSTACLE_EN, MAX_OBSTACLES, MIN_OBSTACLES, loadObstacles, saveObstacles, loadCompDate, saveCompDate, getTodayISO } from './data.js';
+import { ALL_OBSTACLES, OBSTACLE_EN, MAX_OBSTACLES, MIN_OBSTACLES, loadObstacles, saveObstacles, loadCompDate, saveCompDate, getTodayISO, loadHeatNumber, saveHeatNumber, getNextHeatNumber, registerHeat, clearRuns } from './data.js';
 
 export function renderSetup(app, onConfirm) {
   const saved = loadObstacles();
   let selectedList = [...saved];
   let compDate = loadCompDate() || getTodayISO();
+  let heatNumber = getNextHeatNumber(compDate);
   let poolFilter = '';
 
   function render() {
@@ -22,11 +23,22 @@ export function renderSetup(app, onConfirm) {
 
         <div class="setup-card">
           <div class="card-section">
-            <label class="field-label">
-              <span class="field-icon">📅</span>
-              תאריך התחרות
-            </label>
-            <input type="date" class="date-input" value="${compDate}" />
+            <div class="date-heat-row">
+              <div class="date-field">
+                <label class="field-label">
+                  <span class="field-icon">📅</span>
+                  תאריך התחרות
+                </label>
+                <input type="date" class="date-input" value="${compDate}" />
+              </div>
+              <div class="heat-field">
+                <label class="field-label">
+                  <span class="field-icon">🔢</span>
+                  מקצה
+                </label>
+                <input type="number" class="heat-input" min="1" value="${heatNumber}" />
+              </div>
+            </div>
           </div>
 
           <div class="card-section">
@@ -105,7 +117,22 @@ export function renderSetup(app, onConfirm) {
     app.querySelector('.date-input').addEventListener('change', (e) => {
       compDate = e.target.value;
       saveCompDate(compDate);
+      heatNumber = getNextHeatNumber(compDate);
+      saveHeatNumber(heatNumber);
+      const heatInput = app.querySelector('.heat-input');
+      if (heatInput) heatInput.value = heatNumber;
     });
+
+    const heatInput = app.querySelector('.heat-input');
+    if (heatInput) {
+      heatInput.addEventListener('change', (e) => {
+        const val = parseInt(e.target.value, 10);
+        if (val >= 1) {
+          heatNumber = val;
+          saveHeatNumber(heatNumber);
+        }
+      });
+    }
 
     const searchInput = app.querySelector('.pool-search');
     const clearBtn = app.querySelector('.pool-search-clear');
@@ -212,8 +239,15 @@ export function renderSetup(app, onConfirm) {
     const startBtn = app.querySelector('.btn-start-comp');
     if (startBtn && canStart) {
       startBtn.addEventListener('click', () => {
+        const previousObstacles = loadObstacles();
+        const obstaclesChanged = JSON.stringify(previousObstacles) !== JSON.stringify(selectedList);
+        if (obstaclesChanged) {
+          clearRuns();
+        }
         saveObstacles(selectedList);
         saveCompDate(compDate);
+        saveHeatNumber(heatNumber);
+        registerHeat(compDate, heatNumber);
         onConfirm(selectedList);
       });
     }
