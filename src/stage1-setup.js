@@ -1,4 +1,4 @@
-import { ALL_OBSTACLES, OBSTACLE_EN, MAX_OBSTACLES, MIN_OBSTACLES, loadObstacles, saveObstacles, loadCompDate, saveCompDate, getTodayISO, loadHeatNumber, saveHeatNumber, getNextHeatNumber, registerHeat, clearRuns, esc } from './data.js';
+import { ALL_OBSTACLES, OBSTACLE_EN, MAX_OBSTACLES, MIN_OBSTACLES, loadObstacles, saveObstacles, loadCompDate, saveCompDate, getTodayISO, loadHeatNumber, saveHeatNumber, getNextHeatNumber, registerHeat, clearRuns, markSessionActive, esc } from './data.js';
 
 export function renderSetup(app, onConfirm) {
   const saved = loadObstacles();
@@ -248,6 +248,7 @@ export function renderSetup(app, onConfirm) {
         saveCompDate(compDate);
         saveHeatNumber(heatNumber);
         registerHeat(compDate, heatNumber);
+        markSessionActive();
         onConfirm(selectedList);
       });
     }

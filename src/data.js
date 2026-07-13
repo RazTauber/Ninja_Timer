@@ -17,6 +17,7 @@ const STORAGE_KEYS = {
   COMP_DATE: 'ninja_timer_comp_date',
   HEAT_NUMBER: 'ninja_timer_heat_number',
   HEAT_CACHE: 'ninja_timer_heat_cache',
+  SESSION: 'ninja_timer_session',
 };
 
 const ALL_OBSTACLES = [
@@ -165,6 +166,22 @@ function saveRun(run) {
   run.startOrder = runs.length + 1;
   runs.push(run);
   localStorage.setItem(STORAGE_KEYS.RUNS, JSON.stringify(runs));
+}
+
+function isActiveSession() {
+  return sessionStorage.getItem(STORAGE_KEYS.SESSION) === '1';
+}
+
+function markSessionActive() {
+  sessionStorage.setItem(STORAGE_KEYS.SESSION, '1');
+}
+
+function handleFreshLoad() {
+  if (isActiveSession()) return false;
+  clearRuns();
+  localStorage.removeItem(STORAGE_KEYS.OBSTACLES);
+  localStorage.removeItem(STORAGE_KEYS.HEAT_NUMBER);
+  return true;
 }
 
 function clearRuns() {
@@ -422,6 +439,8 @@ export {
   loadRuns,
   saveRun,
   clearRuns,
+  handleFreshLoad,
+  markSessionActive,
   formatTime,
   formatSeconds,
   formatHebrewDate,
