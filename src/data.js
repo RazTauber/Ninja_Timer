@@ -178,10 +178,19 @@ function markSessionActive() {
 
 function handleFreshLoad() {
   if (isActiveSession()) return false;
+  return true;
+}
+
+function hasLastHeatData() {
+  const runs = loadRuns();
+  const obstacles = loadObstacles();
+  return runs.length > 0 && obstacles.length > 0;
+}
+
+function clearLastHeatData() {
   clearRuns();
   localStorage.removeItem(STORAGE_KEYS.OBSTACLES);
   localStorage.removeItem(STORAGE_KEYS.HEAT_NUMBER);
-  return true;
 }
 
 function clearRuns() {
@@ -440,6 +449,8 @@ export {
   saveRun,
   clearRuns,
   handleFreshLoad,
+  hasLastHeatData,
+  clearLastHeatData,
   markSessionActive,
   formatTime,
   formatSeconds,

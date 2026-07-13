@@ -823,6 +823,51 @@ html, body {
 
 .btn-start-comp .btn-arrow svg { display: block; }
 
+.start-buttons-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.btn-continue-heat {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 14px 28px 14px 22px;
+  background: var(--blue);
+  border: none;
+  border-radius: 999px;
+  color: var(--white);
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow: 0 4px 20px var(--blue-glow);
+  transition: background 0.18s, transform 0.14s, box-shadow 0.18s;
+}
+
+.btn-continue-heat:hover {
+  background: var(--blue-light);
+  transform: scale(1.03);
+  box-shadow: 0 6px 28px rgba(35, 86, 200, 0.45);
+}
+
+.btn-continue-heat .btn-label { line-height: 1; }
+
+.btn-continue-heat .btn-arrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+  opacity: 0.9;
+}
+
+.btn-continue-heat .btn-arrow svg { display: block; }
+
 /* ── Competition Layout ──────────────────────────────── */
 .comp-layout {
   width: 100%;
@@ -1707,10 +1752,14 @@ html, body {
     gap: 12px;
   }
   .start-hint { text-align: center; }
-  .btn-start-comp {
+  .btn-start-comp,
+  .btn-continue-heat {
     width: 100%;
     justify-content: center;
     padding: 16px 28px;
+  }
+  .start-buttons-row {
+    flex-direction: column;
   }
   .obstacle-pool {
     grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));

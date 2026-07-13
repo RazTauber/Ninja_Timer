@@ -2,7 +2,7 @@ import './style.css';
 import { renderSetup } from './stage1-setup.js';
 import { renderTimer } from './stage2-timer.js';
 import { renderExport } from './stage3-export.js';
-import { loadObstacles, handleFreshLoad } from './data.js';
+import { loadObstacles, handleFreshLoad, markSessionActive } from './data.js';
 
 /** Resize the transparent logo to a clean 64×64 favicon. */
 function applyLogoFavicon() {
@@ -30,6 +30,9 @@ const app = document.getElementById('app');
 function goToSetup() {
   renderSetup(app, (obstacles) => {
     goToTimer(obstacles);
+  }, () => {
+    markSessionActive();
+    goToTimer(loadObstacles());
   });
 }
 
