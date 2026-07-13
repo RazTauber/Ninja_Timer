@@ -284,6 +284,7 @@ function downloadRunsCSV(runs, obstacles) {
     ];
   });
 
+  const colCount = headers.length;
   const headerHtml = headers.map(h => `<th>${esc(h)}</th>`).join('');
   const rowsHtml = dataRows.map(row =>
     `<tr>${row.map((cell, i) => {
@@ -306,10 +307,17 @@ function downloadRunsCSV(runs, obstacles) {
     }).join('')}</tr>`
   ).join('\n');
 
-  const html = `<!DOCTYPE html>
-<html dir="rtl" lang="he">
+  const headlineText = `נינג'ה ישראל — תוצאות תחרות — ${formatHebrewDate(loadCompDate())} — מקצה ${currentHeat}`;
+
+  const html = `<html xmlns:x="urn:schemas-microsoft-com:office:excel" dir="rtl" lang="he">
 <head>
   <meta charset="UTF-8">
+  <!--[if gte mso 9]><xml>
+  <x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet>
+    <x:Name>תוצאות</x:Name>
+    <x:WorksheetOptions><x:DisplayRightToLeft/></x:WorksheetOptions>
+  </x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook>
+  </xml><![endif]-->
   <style>
     body {
       direction: rtl;
@@ -317,28 +325,30 @@ function downloadRunsCSV(runs, obstacles) {
       background: #FFFFFF;
       color: #1A1A2E;
       margin: 0;
-      padding: 16px;
-    }
-    h2 {
-      font-family: Arial, sans-serif;
-      font-size: 18px;
-      font-weight: 900;
-      text-transform: uppercase;
-      letter-spacing: 2px;
-      color: #1E52E0;
-      margin-bottom: 12px;
+      padding: 0;
     }
     table {
       border-collapse: collapse;
       direction: rtl;
-      width: 100%;
+    }
+    td, th {
+      mso-number-format:'\\@';
+      white-space: nowrap;
+    }
+    .headline {
+      font-family: Arial, sans-serif;
+      font-size: 14px;
+      font-weight: 900;
+      color: #1E52E0;
+      text-align: right;
+      border: none;
+      padding: 8px 12px;
     }
     th {
       background: #1E52E0;
       color: #FFFFFF;
       font-weight: 700;
       font-size: 11px;
-      text-transform: uppercase;
       letter-spacing: 1px;
       border: 1px solid #BBCBE8;
       padding: 8px 12px;
@@ -367,10 +377,10 @@ function downloadRunsCSV(runs, obstacles) {
   </style>
 </head>
 <body>
-<h2>נינג'ה ישראל — תוצאות תחרות — ${formatHebrewDate(loadCompDate())} — מקצה ${currentHeat}</h2>
 <table>
-  <thead><tr>${headerHtml}</tr></thead>
-  <tbody>${rowsHtml}</tbody>
+  <tr><td colspan="${colCount}" class="headline">${esc(headlineText)}</td></tr>
+  <tr>${headerHtml}</tr>
+  ${rowsHtml}
 </table>
 </body>
 </html>`;

@@ -426,8 +426,9 @@ export function renderTimer(app, obstacles, onFinish) {
         progressEl.style.width = `${pct}%`;
 
         if (pct >= 100) {
+          const pressStart = startedAt;
           endHold();
-          onComplete(Date.now());
+          onComplete(pressStart);
           return;
         }
         holdTimer = requestAnimationFrame(animate);
