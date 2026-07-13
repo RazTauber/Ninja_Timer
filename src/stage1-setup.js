@@ -1,4 +1,4 @@
-import { ALL_OBSTACLES, OBSTACLE_EN, MAX_OBSTACLES, MIN_OBSTACLES, loadObstacles, saveObstacles, loadCompDate, saveCompDate, getTodayISO, loadHeatNumber, saveHeatNumber, getNextHeatNumber, registerHeat, clearRuns } from './data.js';
+import { ALL_OBSTACLES, OBSTACLE_EN, MAX_OBSTACLES, MIN_OBSTACLES, loadObstacles, saveObstacles, loadCompDate, saveCompDate, getTodayISO, loadHeatNumber, saveHeatNumber, getNextHeatNumber, registerHeat, clearRuns, esc } from './data.js';
 
 export function renderSetup(app, onConfirm) {
   const saved = loadObstacles();
@@ -55,8 +55,8 @@ export function renderSetup(app, onConfirm) {
                   <div class="order-item">
                     <div class="order-badge">${i + 1}</div>
                     <div class="order-name-wrap">
-                      <span class="order-name">${heKey}</span>
-                      <span class="order-name-en">${OBSTACLE_EN.get(heKey) || ''}</span>
+                      <span class="order-name">${esc(heKey)}</span>
+                      <span class="order-name-en">${esc(OBSTACLE_EN.get(heKey) || '')}</span>
                     </div>
                     <div class="order-buttons">
                       <button class="order-btn move-up" data-index="${i}" ${i === 0 ? 'disabled' : ''} title="הזז למעלה">↑</button>
@@ -83,11 +83,11 @@ export function renderSetup(app, onConfirm) {
           <div class="obstacle-pool-scroll">
             <div class="obstacle-pool">
               ${availableObstacles.map(({ he, en }) => `
-                <button class="pool-chip" data-obstacle="${he}" data-en="${en}" ${!canAdd ? 'disabled' : ''} title="${he} — ${en}">
+                <button class="pool-chip" data-obstacle="${esc(he)}" data-en="${esc(en)}" ${!canAdd ? 'disabled' : ''} title="${esc(he)} — ${esc(en)}">
                   <span class="pool-plus">+</span>
                   <span class="pool-chip-names">
-                    <span class="pool-name">${he}</span>
-                    <span class="pool-name-en">${en}</span>
+                    <span class="pool-name">${esc(he)}</span>
+                    <span class="pool-name-en">${esc(en)}</span>
                   </span>
                 </button>
               `).join('')}

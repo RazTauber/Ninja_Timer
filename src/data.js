@@ -189,9 +189,12 @@ function formatSeconds(ms) {
 
 function formatHebrewDate(dateStr) {
   if (!dateStr) return '';
-  const d = new Date(dateStr);
+  const parts = dateStr.split('-');
+  const year = parseInt(parts[0], 10);
+  const month = parseInt(parts[1], 10) - 1;
+  const day = parseInt(parts[2], 10);
   const months = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
-  return `${d.getDate()} ב${months[d.getMonth()]} ${d.getFullYear()}`;
+  return `${day} ב${months[month]} ${year}`;
 }
 
 function getTodayISO() {
@@ -225,14 +228,13 @@ function wallResultDisplay(run) {
 }
 
 function getRankTime(run) {
-  if (!run.dnf) return run.totalTime;
-  const passEvents = run.events.filter(e => e.type === 'PASSED');
-  return passEvents.length > 0 ? passEvents[passEvents.length - 1].time : 0;
+  return run.totalTime;
 }
 
 function downloadRunsCSV(runs, obstacles) {
   const currentHeat = loadHeatNumber();
-  const headers = ['תאריך', 'מקצה', 'דירוג', 'סדר', 'מתחרה', ...obstacles.map(o => obstacleLabel(o)), 'זמן זינוק', 'זמן נפילה', 'סיים?', 'תוצאת קיר'];
+  const obstacleHeaders = obstacles.flatMap(o => [`${obstacleLabel(o)} — זינוק`, `${obstacleLabel(o)} — תוצאה`]);
+  const headers = ['תאריך', 'מקצה', 'דירוג', 'סדר', 'מתחרה', ...obstacleHeaders, 'זמן סה"כ', 'סיים?', 'תוצאת קיר'];
 
   const sortedForRank = [...runs].sort((a, b) => {
     if (a.dnf && !b.dnf) return 1;
@@ -253,11 +255,6 @@ function downloadRunsCSV(runs, obstacles) {
       }
     }
 
-    const fallEvent = run.events.find(e => e.type === 'FALL');
-    const fallStartTime = fallEvent
-      ? formatSeconds(fallEvent.obstacleStartTime ?? getRankTime(run))
-      : '-';
-    const fallTime = fallEvent ? formatSeconds(fallEvent.time) : '-';
     const finished = obstacles.every(o => o in obstacleTimes);
 
     const order = run.startOrder ?? (runs.indexOf(run) + 1);
@@ -269,13 +266,19 @@ function downloadRunsCSV(runs, obstacles) {
       rank,
       order,
       run.contestantName,
-      ...obstacles.map(o => {
-        if (obstacleTimes[o]) return obstacleTimes[o];
-        const fell = run.events.find(e => e.type === 'FALL' && e.obstacle === o);
-        return fell ? formatSeconds(fell.time) + ' (נפילה)' : '-';
+      ...obstacles.flatMap(o => {
+        const startEvt = run.events.find(e => e.type === 'OBSTACLE_START' && e.obstacle === o);
+        const startCol = startEvt ? formatSeconds(startEvt.time) : '-';
+        let resultCol;
+        if (obstacleTimes[o]) {
+          resultCol = obstacleTimes[o];
+        } else {
+          const fell = run.events.find(e => e.type === 'FALL' && e.obstacle === o);
+          resultCol = fell ? formatSeconds(fell.time) + ' (נפילה)' : '-';
+        }
+        return [startCol, resultCol];
       }),
-      fallStartTime,
-      fallTime,
+      formatSeconds(run.totalTime),
       finished ? 'כן' : 'לא',
       wallResultDisplay(run),
     ];
@@ -285,15 +288,20 @@ function downloadRunsCSV(runs, obstacles) {
   const rowsHtml = dataRows.map(row =>
     `<tr>${row.map((cell, i) => {
       const str = String(cell);
+      const obstacleStartIdx = 5;
+      const obstacleEndIdx = 5 + obstacles.length * 2;
+      const isStartCol = i >= obstacleStartIdx && i < obstacleEndIdx && (i - obstacleStartIdx) % 2 === 0;
       let cls = '';
       if (i === 2) cls = 'cell-rank';
       else if (i === 3) cls = 'cell-order';
+      else if (isStartCol && str !== '-') cls = 'cell-start';
       else if (str === '-') cls = 'cell-dash';
       else if (str.includes('נפילה')) cls = 'cell-fall';
       else if (i === row.length - 1 && str.includes('MEGA')) cls = 'cell-wall-mega';
       else if (i === row.length - 1 && str.includes('Wall')) cls = 'cell-wall-pass';
       else if (i === row.length - 1 && str.includes('Failed')) cls = 'cell-wall-fail';
       else if (i === row.length - 2 && str !== '-') cls = 'cell-finish';
+      else if (i === row.length - 3) cls = 'cell-total';
       return `<td class="${cls}">${esc(str)}</td>`;
     }).join('')}</tr>`
   ).join('\n');
@@ -347,6 +355,7 @@ function downloadRunsCSV(runs, obstacles) {
     tr:nth-child(even) td { background: #F4F6FC; }
     .cell-finish { color: #B8860B; font-weight: 700; }
     .cell-fall   { color: #CC1A22; font-weight: 700; }
+    .cell-start  { color: #1E52E0; font-weight: 600; }
     .cell-dnf    { color: #CC1A22; }
     .cell-dash   { color: #AAAACC; }
     .cell-rank   { color: #1E52E0; font-weight: 800; font-size: 13px; text-align: center; }
@@ -354,10 +363,11 @@ function downloadRunsCSV(runs, obstacles) {
     .cell-wall-mega { color: #B8860B; font-weight: 700; font-size: 14px; text-align: center; }
     .cell-wall-pass { color: #1E52E0; font-weight: 600; text-align: center; }
     .cell-wall-fail { color: #CC1A22; font-weight: 600; text-align: center; }
+    .cell-total { font-weight: 700; text-align: center; }
   </style>
 </head>
 <body>
-<h2>נינג'ה ישראל — תוצאות תחרות — מקצה ${currentHeat}</h2>
+<h2>נינג'ה ישראל — תוצאות תחרות — ${formatHebrewDate(loadCompDate())} — מקצה ${currentHeat}</h2>
 <table>
   <thead><tr>${headerHtml}</tr></thead>
   <tbody>${rowsHtml}</tbody>
