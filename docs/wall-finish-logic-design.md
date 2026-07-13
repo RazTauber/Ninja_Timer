@@ -543,9 +543,11 @@ Old events without `WALL_UNLOCKED` / `WALL_RESULT` are still valid. The system i
 ```
 1. Operator selects obstacles (3–6) and competition date.
 2. For each competitor:
-   a. Enter name → Start run (timer begins)
-   b. Per obstacle: tap "Pass" or hold "Fall"
-   c. Last obstacle requires hold-to-confirm (1.2s)
+   a. Enter name → Press Enter to begin run
+   b. Per obstacle:
+      i.   Click "זינוק" (Start obstacle) — the timer starts on the FIRST זינוק
+      ii.  Click "עבר" (Pass) or hold "נפילה" (Fall)
+   c. Last obstacle "עבר" requires hold-to-confirm (1.2s)
    d. After ALL obstacles passed → WALL UNLOCKS
    e. Competitor gets 3 attempts at the wall
    f. Operator records outcome: MEGA Wall / Wall / Failed
@@ -553,7 +555,37 @@ Old events without `WALL_UNLOCKED` / `WALL_RESULT` are still valid. The system i
 3. Export results to Excel at any time.
 ```
 
-### 9.2 Wall Rules
+### 9.2 Hold-to-Confirm Timing (Critical Design Decision)
+
+The hold-to-confirm button (used for the last obstacle "Pass" and for "Fall") records
+the timestamp at the **moment the operator presses down** (`startedAt`), NOT at the
+moment the hold completes (1.2s later). This is intentional:
+
+- The operator presses the button the instant the athlete finishes/falls.
+- The 1.2-second hold is a UI safeguard to prevent accidental taps.
+- Recording at press start gives the most accurate competition time.
+
+**Implementation:** In `setupHoldButton()`, `onComplete(pressStart)` is called with
+`pressStart = startedAt` (captured at `pointerdown`). Both `handlePass` and `handleFall`
+use `(pressStart ?? Date.now()) - activeRun.startTime` for the elapsed calculation.
+
+**DO NOT change this to `Date.now()` at hold completion** — it would add ~1.2s of
+artificial delay to every recorded time.
+
+### 9.3 Obstacle Start (זינוק) System
+
+Each obstacle has an explicit "Start obstacle" (זינוק) action that the operator clicks
+before the athlete begins attempting it. Key behaviors:
+
+- **Timer activation:** The global run timer starts ONLY when the first obstacle's
+  זינוק is clicked (not when the run is created).
+- **Event type:** `OBSTACLE_START` — recorded per obstacle with the click timestamp.
+- **UI flow:** Current obstacle shows the זינוק button first; Pass/Fall buttons appear
+  only after the start is clicked.
+- **Export:** Each obstacle gets two columns: "זינוק" (start time) and "תוצאה" (result time).
+- **Undo:** Undoing the first OBSTACLE_START stops the timer and resets to waiting state.
+
+### 9.4 Wall Rules
 
 | Rule | Description |
 |------|-------------|
@@ -563,7 +595,18 @@ Old events without `WALL_UNLOCKED` / `WALL_RESULT` are still valid. The system i
 | Outcomes | MEGA Wall (best) > Wall (good) > Failed (completed course) |
 | Undo | Operator can undo last pass to re-lock wall |
 
-### 9.3 Data Dictionary Update
+### 9.5 Deployment
+
+The app is a static Vite site deployed to **Cloudflare Pages**.
+Production URL: **https://ninja-timer.pages.dev/**
+
+Always deploy to production using:
+```bash
+npx vite build
+npx wrangler pages deploy dist --project-name=ninja-timer --branch=master
+```
+
+### 9.6 Data Dictionary Update
 
 | Field | Type | Added In | Description |
 |-------|------|----------|-------------|

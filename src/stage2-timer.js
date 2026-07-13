@@ -426,6 +426,8 @@ export function renderTimer(app, obstacles, onFinish) {
         progressEl.style.width = `${pct}%`;
 
         if (pct >= 100) {
+          // Record time at PRESS START, not hold completion — the hold is a UI
+          // safeguard only; the athlete's actual moment is when operator pressed.
           const pressStart = startedAt;
           endHold();
           onComplete(pressStart);
