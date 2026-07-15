@@ -227,6 +227,15 @@ export function renderTimer(app, obstacles, onFinish) {
     const passedCount = run.events.filter(e => e.type === 'PASSED').length;
     const progressPct = Math.round((passedCount / obstacles.length) * 100);
 
+    if (run.timerStarted && !run.finished && !run.timerInterval) {
+      run.timerInterval = setInterval(() => {
+        const tv = document.querySelector('.timer-value');
+        if (tv && activeRun) {
+          tv.textContent = formatTime(Date.now() - activeRun.startTime);
+        }
+      }, 16);
+    }
+
     section.innerHTML = `
       <div class="card timer-card ${run.wallUnlocked ? 'timer-card-wall-open' : ''}">
         <div class="timer-top">
