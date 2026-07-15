@@ -4,7 +4,7 @@ export function renderSetup(app, onConfirm, onContinue) {
   let selectedList = [];
   let playerList = loadPlayers();
   let compDate = loadCompDate() || getTodayISO();
-  let heatNumber = hasLastHeatData() ? loadHeatNumber() : getNextHeatNumber(compDate);
+  let heatNumber = getNextHeatNumber(compDate);
   let poolFilter = '';
 
   function render() {
@@ -152,12 +152,10 @@ export function renderSetup(app, onConfirm, onContinue) {
     app.querySelector('.date-input').addEventListener('change', (e) => {
       compDate = e.target.value;
       saveCompDate(compDate);
-      if (!hasLastHeatData()) {
-        heatNumber = getNextHeatNumber(compDate);
-        saveHeatNumber(heatNumber);
-        const heatInput = app.querySelector('.heat-input');
-        if (heatInput) heatInput.value = heatNumber;
-      }
+      heatNumber = getNextHeatNumber(compDate);
+      saveHeatNumber(heatNumber);
+      const heatInput = app.querySelector('.heat-input');
+      if (heatInput) heatInput.value = heatNumber;
     });
 
     const heatInput = app.querySelector('.heat-input');
@@ -178,7 +176,16 @@ export function renderSetup(app, onConfirm, onContinue) {
       const name = playerInput.value.trim();
       if (!name) return;
       const isDuplicate = playerList.some(p => p.toLowerCase() === name.toLowerCase());
-      if (isDuplicate) return;
+      if (isDuplicate) {
+        playerInput.classList.add('input-error');
+        playerInput.setAttribute('placeholder', 'שם זה כבר קיים ברשימה');
+        playerInput.value = '';
+        setTimeout(() => {
+          playerInput.classList.remove('input-error');
+          playerInput.setAttribute('placeholder', 'הזינו שם מתחרה...');
+        }, 2000);
+        return;
+      }
       playerList.push(name);
       savePlayers(playerList);
       render();

@@ -1,4 +1,4 @@
-import { saveRun, loadRuns, clearLastHeatData, formatTime, formatSeconds, formatHebrewDate, loadCompDate, downloadRunsCSV, WALL_RESULTS, normalizeWallResult, OBSTACLE_EN, loadHeatNumber, loadPlayers, getRankTime, getObstaclesCompleted, esc } from './data.js';
+import { saveRun, loadRuns, clearLastHeatData, formatTime, formatSeconds, formatHebrewDate, loadCompDate, downloadRunsCSV, WALL_RESULTS, normalizeWallResult, OBSTACLE_EN, loadHeatNumber, loadPlayers, rankRuns, esc } from './data.js';
 
 const HOLD_DURATION = 1200;
 
@@ -200,6 +200,10 @@ export function renderTimer(app, obstacles, onFinish) {
   }
 
   function startNewRun() {
+    const players = loadPlayers();
+    const canonical = players.find(p => p.toLowerCase() === contestantName.toLowerCase());
+    if (canonical) contestantName = canonical;
+
     activeRun = {
       contestantName,
       startTime: null,
@@ -698,15 +702,7 @@ export function renderTimer(app, obstacles, onFinish) {
     // Build start-order map before sorting (backward-compat: use array index for old runs)
     const orderMap = new Map(runs.map((r, i) => [r, r.startOrder ?? (i + 1)]));
 
-    const sortedRuns = [...runs].sort((a, b) => {
-      if (a.dnf && !b.dnf) return 1;
-      if (!a.dnf && b.dnf) return -1;
-      if (!a.dnf && !b.dnf) return a.totalTime - b.totalTime;
-      const aObs = getObstaclesCompleted(a);
-      const bObs = getObstaclesCompleted(b);
-      if (aObs !== bObs) return bObs - aObs;
-      return getRankTime(a) - getRankTime(b);
-    });
+    const sortedRuns = rankRuns(runs);
 
     section.innerHTML = `
       <div class="card scoreboard-card">
@@ -730,7 +726,7 @@ export function renderTimer(app, obstacles, onFinish) {
                   <th class="th-rank">דירוג</th>
                   <th class="th-order">סדר</th>
                   <th>מתחרה</th>
-                  ${obstacles.map(o => `<th class="th-obstacle"><span class="th-he">${esc(o)}</span><span class="th-en">${esc(OBSTACLE_EN.get(o) || '')}</span></th>`).join('')}
+                  ${obstacles.map(o => `<th class="th-obstacle"><span class="th-he">${o}</span><span class="th-en">${OBSTACLE_EN.get(o) || ''}</span></th>`).join('')}
                   <th class="th-mega" title="תוצאת קיר">קיר</th>
                   <th>סה"כ</th>
                 </tr>

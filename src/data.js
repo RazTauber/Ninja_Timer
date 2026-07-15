@@ -270,12 +270,8 @@ function wallResultDisplay(run) {
 function getRankTime(run) {
   if (run.dnf) {
     const fallEvent = run.events.find(e => e.type === 'FALL');
-    if (fallEvent) {
-      if (fallEvent.obstacleStartTime !== undefined) {
-        return fallEvent.obstacleStartTime;
-      }
-      const lastPassed = [...run.events].reverse().find(e => e.type === 'PASSED');
-      if (lastPassed) return lastPassed.time;
+    if (fallEvent && fallEvent.obstacleStartTime != null && isFinite(fallEvent.obstacleStartTime)) {
+      return fallEvent.obstacleStartTime;
     }
   }
   return run.totalTime;
@@ -285,12 +281,8 @@ function getObstaclesCompleted(run) {
   return run.events.filter(e => e.type === 'PASSED').length;
 }
 
-function downloadRunsCSV(runs, obstacles) {
-  const currentHeat = loadHeatNumber();
-  const obstacleHeaders = obstacles.flatMap(o => [`${obstacleLabel(o)} — זינוק`, `${obstacleLabel(o)} — תוצאה`]);
-  const headers = ['תאריך', 'מקצה', 'דירוג', 'סדר', 'מתחרה', ...obstacleHeaders, 'זמן סה"כ', 'סיים?', 'תוצאת קיר'];
-
-  const sortedForRank = [...runs].sort((a, b) => {
+function rankRuns(runs) {
+  return [...runs].sort((a, b) => {
     if (a.dnf && !b.dnf) return 1;
     if (!a.dnf && b.dnf) return -1;
     if (!a.dnf && !b.dnf) return a.totalTime - b.totalTime;
@@ -299,6 +291,14 @@ function downloadRunsCSV(runs, obstacles) {
     if (aObs !== bObs) return bObs - aObs;
     return getRankTime(a) - getRankTime(b);
   });
+}
+
+function downloadRunsCSV(runs, obstacles) {
+  const currentHeat = loadHeatNumber();
+  const obstacleHeaders = obstacles.flatMap(o => [`${obstacleLabel(o)} — זינוק`, `${obstacleLabel(o)} — תוצאה`]);
+  const headers = ['תאריך', 'מקצה', 'דירוג', 'סדר', 'מתחרה', ...obstacleHeaders, 'זמן סה"כ', 'סיים?', 'תוצאת קיר'];
+
+  const sortedForRank = rankRuns(runs);
   const rankMap = new Map(sortedForRank.map((r, i) => [r, i + 1]));
 
   const dataRows = sortedForRank.map((run) => {
@@ -492,6 +492,7 @@ export {
   getTodayISO,
   getRankTime,
   getObstaclesCompleted,
+  rankRuns,
   normalizeWallResult,
   wallResultDisplay,
   downloadRunsCSV,

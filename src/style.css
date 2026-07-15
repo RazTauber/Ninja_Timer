@@ -736,6 +736,22 @@ html, body {
   box-shadow: 0 0 0 3px var(--blue-soft);
 }
 
+.player-name-input.input-error {
+  border-color: var(--red);
+  box-shadow: 0 0 0 3px var(--red-glow);
+  animation: shake 0.3s ease;
+}
+
+.player-name-input.input-error::placeholder {
+  color: var(--red-vivid);
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+
 .btn-add-player {
   padding: 12px 20px;
   background: var(--blue);
