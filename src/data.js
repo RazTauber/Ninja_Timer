@@ -254,6 +254,7 @@ const WALL_RESULTS = { MEGA_WALL: 'MEGA_WALL', WALL: 'WALL', FAILED: 'FAILED' };
 
 function normalizeWallResult(run) {
   if (run.wallResult) return run.wallResult;
+  if (run.wallFailed) return WALL_RESULTS.FAILED;
   if (run.dnf) return null;
   return run.megaWall ? WALL_RESULTS.MEGA_WALL : WALL_RESULTS.WALL;
 }
@@ -269,6 +270,10 @@ function wallResultDisplay(run) {
 
 function getRankTime(run) {
   if (run.dnf) {
+    if (run.wallFailed) {
+      const wallUnlock = run.events.find(e => e.type === 'WALL_UNLOCKED');
+      if (wallUnlock) return wallUnlock.time;
+    }
     const fallEvent = run.events.find(e => e.type === 'FALL');
     if (fallEvent && fallEvent.obstacleStartTime != null && isFinite(fallEvent.obstacleStartTime)) {
       return fallEvent.obstacleStartTime;
@@ -312,7 +317,7 @@ function downloadRunsCSV(runs, obstacles) {
       }
     }
 
-    const finished = obstacles.every(o => o in obstacleTimes);
+    const finished = !run.dnf && obstacles.every(o => o in obstacleTimes);
 
     const order = run.startOrder ?? (runs.indexOf(run) + 1);
     const rank = rankMap.get(run);
@@ -331,7 +336,12 @@ function downloadRunsCSV(runs, obstacles) {
           resultCol = obstacleTimes[o];
         } else {
           const fell = run.events.find(e => e.type === 'FALL' && e.obstacle === o);
-          resultCol = fell ? formatSeconds(fell.time) + ' (נפילה)' : '-';
+          if (fell) {
+            const displayTime = fell.obstacleStartTime != null ? fell.obstacleStartTime : fell.time;
+            resultCol = formatSeconds(displayTime) + ' (נפילה)';
+          } else {
+            resultCol = '-';
+          }
         }
         return [startCol, resultCol];
       }),

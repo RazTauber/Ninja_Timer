@@ -222,7 +222,7 @@ export function renderTimer(app, obstacles, onFinish) {
     if (!activeRun) return;
 
     const run = activeRun;
-    const elapsed = !run.timerStarted ? 0 : run.wallUnlocked ? run.wallPendingTime : Date.now() - run.startTime;
+    const elapsed = !run.timerStarted ? 0 : Date.now() - run.startTime;
     const currentIdx = run.currentObstacleIndex;
     const passedCount = run.events.filter(e => e.type === 'PASSED').length;
     const progressPct = Math.round((passedCount / obstacles.length) * 100);
@@ -231,7 +231,7 @@ export function renderTimer(app, obstacles, onFinish) {
       <div class="card timer-card ${run.wallUnlocked ? 'timer-card-wall-open' : ''}">
         <div class="timer-top">
           <div class="timer-info">
-            <span class="timer-status">${run.wallUnlocked ? '🏆 הקיר פתוח!' : !run.timerStarted ? '🏁 ממתין לזינוק' : '⏱ בריצה'}</span>
+            <span class="timer-status">${run.wallUnlocked ? '🏆 הקיר פתוח! ⏱' : !run.timerStarted ? '🏁 ממתין לזינוק' : '⏱ בריצה'}</span>
             <span class="timer-player">${esc(run.contestantName)}</span>
           </div>
           <div class="timer-display">
@@ -349,8 +349,9 @@ export function renderTimer(app, obstacles, onFinish) {
   }
 
   function handleWallResult(result) {
-    if (!activeRun) return;
-    const elapsed = activeRun.wallPendingTime;
+    if (!activeRun || activeRun.finished) return;
+    activeRun.finished = true;
+    const elapsed = Date.now() - activeRun.startTime;
 
     activeRun.events.push({
       time: elapsed,
@@ -359,7 +360,15 @@ export function renderTimer(app, obstacles, onFinish) {
       wallResult: result,
     });
 
-    finishRun(elapsed, result);
+    clearInterval(activeRun.timerInterval);
+    activeRun.timerInterval = null;
+    activeRun.finished = true;
+
+    if (result === WALL_RESULTS.FAILED) {
+      finishRunWallFailed(elapsed);
+    } else {
+      finishRun(elapsed, result);
+    }
   }
 
   function attachTimerEvents(section) {
@@ -516,8 +525,10 @@ export function renderTimer(app, obstacles, onFinish) {
   }
 
   function handlePass(obstacleIndex, pressStart) {
-    if (!activeRun) return;
+    if (!activeRun || activeRun.finished) return;
+    if (obstacleIndex !== activeRun.currentObstacleIndex) return;
     const obstacleName = obstacles[obstacleIndex];
+    if (activeRun.events.some(e => e.type === 'PASSED' && e.obstacle === obstacleName)) return;
 
     const startEvent = activeRun.events.find(e => e.type === 'OBSTACLE_START' && e.obstacle === obstacleName);
     if (!startEvent) return;
@@ -538,11 +549,8 @@ export function renderTimer(app, obstacles, onFinish) {
 
   function unlockWall(elapsed) {
     if (!activeRun) return;
-    clearInterval(activeRun.timerInterval);
-    activeRun.timerInterval = null;
-    activeRun.finished = true;
     activeRun.wallUnlocked = true;
-    activeRun.wallPendingTime = elapsed;
+    activeRun.wallUnlockTime = elapsed;
     activeRun.wallResult = null;
 
     activeRun.events.push({ time: elapsed, type: 'WALL_UNLOCKED', obstacle: null });
@@ -551,8 +559,10 @@ export function renderTimer(app, obstacles, onFinish) {
   }
 
   function handleFall(obstacleIndex, pressStart) {
-    if (!activeRun) return;
+    if (!activeRun || activeRun.finished) return;
+    if (obstacleIndex !== activeRun.currentObstacleIndex) return;
     const obstacleName = obstacles[obstacleIndex];
+    if (activeRun.events.some(e => e.type === 'FALL' && e.obstacle === obstacleName)) return;
 
     const startEvent = activeRun.events.find(e => e.type === 'OBSTACLE_START' && e.obstacle === obstacleName);
     if (!startEvent) return;
@@ -586,11 +596,38 @@ export function renderTimer(app, obstacles, onFinish) {
     renderScoreboard();
   }
 
+  function finishRunWallFailed(totalTime) {
+    if (!activeRun) return;
+
+    activeRun.events.push({ time: totalTime, type: 'COMPLETED', obstacle: null });
+
+    const run = {
+      contestantName: activeRun.contestantName,
+      startTime: activeRun.startISO,
+      events: [...activeRun.events],
+      totalTime,
+      dnf: true,
+      wallResult: WALL_RESULTS.FAILED,
+      wallFailed: true,
+      heatNumber: loadHeatNumber(),
+    };
+    saveRun(run);
+
+    activeRun = null;
+    contestantName = '';
+
+    updateHeaderStats();
+    renderRunnerSection();
+    renderScoreboard();
+  }
+
   function finishRun(totalTime, wallResult) {
     if (!activeRun) return;
 
-    clearInterval(activeRun.timerInterval);
-    activeRun.timerInterval = null;
+    if (activeRun.timerInterval) {
+      clearInterval(activeRun.timerInterval);
+      activeRun.timerInterval = null;
+    }
 
     activeRun.events.push({ time: totalTime, type: 'COMPLETED', obstacle: null });
 
@@ -650,15 +687,9 @@ export function renderTimer(app, obstacles, onFinish) {
           activeRun.events.pop();
           activeRun.currentObstacleIndex = Math.max(0, activeRun.currentObstacleIndex - 1);
         }
-        // Adjust startTime so the timer resumes from wallPendingTime,
-        // not from the actual elapsed wall-decision pause.
-        const pauseDuration = Date.now() - (activeRun.startTime + activeRun.wallPendingTime);
-        activeRun.startTime += pauseDuration;
         activeRun.wallUnlocked = false;
-        activeRun.wallPendingTime = null;
+        activeRun.wallUnlockTime = null;
         activeRun.wallResult = null;
-        activeRun.finished = false;
-        restartTimerInterval();
       }
     }
 
@@ -756,7 +787,8 @@ export function renderTimer(app, obstacles, onFinish) {
                         }
                         const fell = run.events.find(e => e.type === 'FALL' && e.obstacle === o);
                         if (fell) {
-                          return `<td class="td-obstacle td-fall">${formatSeconds(fell.time)}</td>`;
+                          const displayTime = fell.obstacleStartTime != null ? fell.obstacleStartTime : fell.time;
+                          return `<td class="td-obstacle td-fall">${formatSeconds(displayTime)}</td>`;
                         }
                         return `<td class="td-obstacle td-empty">-</td>`;
                       }).join('')}
