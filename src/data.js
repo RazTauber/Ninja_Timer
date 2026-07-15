@@ -18,6 +18,7 @@ const STORAGE_KEYS = {
   HEAT_NUMBER: 'ninja_timer_heat_number',
   HEAT_CACHE: 'ninja_timer_heat_cache',
   SESSION: 'ninja_timer_session',
+  PLAYERS: 'ninja_timer_players',
 };
 
 const ALL_OBSTACLES = [
@@ -177,8 +178,7 @@ function markSessionActive() {
 }
 
 function handleFreshLoad() {
-  if (isActiveSession()) return false;
-  return true;
+  return !isActiveSession();
 }
 
 function hasLastHeatData() {
@@ -187,10 +187,24 @@ function hasLastHeatData() {
   return runs.length > 0 && obstacles.length > 0;
 }
 
+function loadPlayers() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.PLAYERS);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function savePlayers(players) {
+  localStorage.setItem(STORAGE_KEYS.PLAYERS, JSON.stringify(players));
+}
+
 function clearLastHeatData() {
   clearRuns();
   localStorage.removeItem(STORAGE_KEYS.OBSTACLES);
   localStorage.removeItem(STORAGE_KEYS.HEAT_NUMBER);
+  localStorage.removeItem(STORAGE_KEYS.PLAYERS);
 }
 
 function clearRuns() {
@@ -254,7 +268,21 @@ function wallResultDisplay(run) {
 }
 
 function getRankTime(run) {
+  if (run.dnf) {
+    const fallEvent = run.events.find(e => e.type === 'FALL');
+    if (fallEvent) {
+      if (fallEvent.obstacleStartTime !== undefined) {
+        return fallEvent.obstacleStartTime;
+      }
+      const lastPassed = [...run.events].reverse().find(e => e.type === 'PASSED');
+      if (lastPassed) return lastPassed.time;
+    }
+  }
   return run.totalTime;
+}
+
+function getObstaclesCompleted(run) {
+  return run.events.filter(e => e.type === 'PASSED').length;
 }
 
 function downloadRunsCSV(runs, obstacles) {
@@ -265,8 +293,11 @@ function downloadRunsCSV(runs, obstacles) {
   const sortedForRank = [...runs].sort((a, b) => {
     if (a.dnf && !b.dnf) return 1;
     if (!a.dnf && b.dnf) return -1;
-    if (a.dnf && b.dnf) return getRankTime(a) - getRankTime(b);
-    return a.totalTime - b.totalTime;
+    if (!a.dnf && !b.dnf) return a.totalTime - b.totalTime;
+    const aObs = getObstaclesCompleted(a);
+    const bObs = getObstaclesCompleted(b);
+    if (aObs !== bObs) return bObs - aObs;
+    return getRankTime(a) - getRankTime(b);
   });
   const rankMap = new Map(sortedForRank.map((r, i) => [r, i + 1]));
 
@@ -445,6 +476,8 @@ export {
   saveHeatCache,
   getNextHeatNumber,
   registerHeat,
+  loadPlayers,
+  savePlayers,
   loadRuns,
   saveRun,
   clearRuns,
@@ -452,11 +485,13 @@ export {
   hasLastHeatData,
   clearLastHeatData,
   markSessionActive,
+  isActiveSession,
   formatTime,
   formatSeconds,
   formatHebrewDate,
   getTodayISO,
   getRankTime,
+  getObstaclesCompleted,
   normalizeWallResult,
   wallResultDisplay,
   downloadRunsCSV,

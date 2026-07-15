@@ -1,15 +1,15 @@
-import { ALL_OBSTACLES, OBSTACLE_EN, MAX_OBSTACLES, MIN_OBSTACLES, loadObstacles, saveObstacles, loadCompDate, saveCompDate, getTodayISO, loadHeatNumber, saveHeatNumber, getNextHeatNumber, registerHeat, clearRuns, clearLastHeatData, hasLastHeatData, markSessionActive, esc } from './data.js';
+import { ALL_OBSTACLES, OBSTACLE_EN, MAX_OBSTACLES, MIN_OBSTACLES, loadObstacles, saveObstacles, loadCompDate, saveCompDate, getTodayISO, loadHeatNumber, saveHeatNumber, getNextHeatNumber, registerHeat, loadPlayers, savePlayers, clearLastHeatData, hasLastHeatData, markSessionActive, esc } from './data.js';
 
 export function renderSetup(app, onConfirm, onContinue) {
-  const saved = loadObstacles();
-  let selectedList = [...saved];
+  let selectedList = [];
+  let playerList = loadPlayers();
   let compDate = loadCompDate() || getTodayISO();
-  let heatNumber = getNextHeatNumber(compDate);
+  let heatNumber = hasLastHeatData() ? loadHeatNumber() : getNextHeatNumber(compDate);
   let poolFilter = '';
 
   function render() {
     const count = selectedList.length;
-    const canStart = count >= MIN_OBSTACLES;
+    const canStart = count >= MIN_OBSTACLES && playerList.length > 0;
     const canAdd = count < MAX_OBSTACLES;
     const canContinue = onContinue && hasLastHeatData();
     const availableObstacles = ALL_OBSTACLES.filter(o => !selectedList.includes(o.he));
@@ -40,6 +40,30 @@ export function renderSetup(app, onConfirm, onContinue) {
                 <input type="number" class="heat-input" min="1" value="${heatNumber}" />
               </div>
             </div>
+          </div>
+
+          <div class="card-section">
+            <div class="section-header">
+              <h3 class="section-title">מתחרים</h3>
+              <span class="obstacle-counter ${playerList.length > 0 ? 'counter-ready' : ''}">${playerList.length}</span>
+            </div>
+            <div class="player-add-row">
+              <input type="text" class="player-name-input" placeholder="הזינו שם מתחרה..." />
+              <button class="btn-add-player">+ הוסף</button>
+            </div>
+            ${playerList.length === 0 ? `
+              <p class="empty-hint">עדיין לא נרשמו מתחרים — הוסיפו שמות לפני תחילת המקצה.</p>
+            ` : `
+              <div class="player-list">
+                ${playerList.map((name, i) => `
+                  <div class="player-item">
+                    <div class="order-badge player-badge">${i + 1}</div>
+                    <span class="player-name">${esc(name)}</span>
+                    <button class="order-btn remove-player-btn" data-index="${i}" title="הסר">✕</button>
+                  </div>
+                `).join('')}
+              </div>
+            `}
           </div>
 
           <div class="card-section">
@@ -104,10 +128,10 @@ export function renderSetup(app, onConfirm, onContinue) {
         </div>
 
         <div class="start-section">
-          <p class="start-hint">${canStart ? 'המסלול נעול. מוכנים להתחרות.' : `בחרו לפחות ${MIN_OBSTACLES} מכשולים כדי להתחיל.`}</p>
+          <p class="start-hint">${canStart ? `המסלול נעול, ${playerList.length} מתחרים רשומים. מוכנים להתחרות.` : count < MIN_OBSTACLES ? `בחרו לפחות ${MIN_OBSTACLES} מכשולים כדי להתחיל.` : 'הוסיפו לפחות מתחרה אחד כדי להתחיל.'}</p>
           <div class="start-buttons-row">
             <button class="btn-start-comp" ${!canStart ? 'disabled' : ''}>
-              <span class="btn-label">התחל תחרות</span>
+              <span class="btn-label">התחל מקצה</span>
               <span class="btn-arrow" aria-hidden="true">
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
               </span>
@@ -128,10 +152,12 @@ export function renderSetup(app, onConfirm, onContinue) {
     app.querySelector('.date-input').addEventListener('change', (e) => {
       compDate = e.target.value;
       saveCompDate(compDate);
-      heatNumber = getNextHeatNumber(compDate);
-      saveHeatNumber(heatNumber);
-      const heatInput = app.querySelector('.heat-input');
-      if (heatInput) heatInput.value = heatNumber;
+      if (!hasLastHeatData()) {
+        heatNumber = getNextHeatNumber(compDate);
+        saveHeatNumber(heatNumber);
+        const heatInput = app.querySelector('.heat-input');
+        if (heatInput) heatInput.value = heatNumber;
+      }
     });
 
     const heatInput = app.querySelector('.heat-input');
@@ -144,6 +170,41 @@ export function renderSetup(app, onConfirm, onContinue) {
         }
       });
     }
+
+    const playerInput = app.querySelector('.player-name-input');
+    const addPlayerBtn = app.querySelector('.btn-add-player');
+
+    function addPlayer() {
+      const name = playerInput.value.trim();
+      if (!name) return;
+      const isDuplicate = playerList.some(p => p.toLowerCase() === name.toLowerCase());
+      if (isDuplicate) return;
+      playerList.push(name);
+      savePlayers(playerList);
+      render();
+    }
+
+    if (addPlayerBtn) {
+      addPlayerBtn.addEventListener('click', addPlayer);
+    }
+    if (playerInput) {
+      playerInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          addPlayer();
+        }
+      });
+    }
+
+    app.querySelectorAll('.remove-player-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const idx = parseInt(btn.dataset.index, 10);
+        playerList.splice(idx, 1);
+        savePlayers(playerList);
+        render();
+      });
+    });
 
     const searchInput = app.querySelector('.pool-search');
     const clearBtn = app.querySelector('.pool-search-clear');
@@ -252,6 +313,7 @@ export function renderSetup(app, onConfirm, onContinue) {
       startBtn.addEventListener('click', () => {
         clearLastHeatData();
         saveObstacles(selectedList);
+        savePlayers(playerList);
         saveCompDate(compDate);
         saveHeatNumber(heatNumber);
         registerHeat(compDate, heatNumber);

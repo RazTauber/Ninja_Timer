@@ -1,4 +1,4 @@
-import { saveRun, loadRuns, clearRuns, formatTime, formatSeconds, formatHebrewDate, loadCompDate, downloadRunsCSV, WALL_RESULTS, normalizeWallResult, OBSTACLE_EN, loadHeatNumber, getRankTime, esc } from './data.js';
+import { saveRun, loadRuns, clearLastHeatData, formatTime, formatSeconds, formatHebrewDate, loadCompDate, downloadRunsCSV, WALL_RESULTS, normalizeWallResult, OBSTACLE_EN, loadHeatNumber, loadPlayers, getRankTime, getObstaclesCompleted, esc } from './data.js';
 
 const HOLD_DURATION = 1200;
 
@@ -82,6 +82,7 @@ export function renderTimer(app, obstacles, onFinish) {
           clearInterval(activeRun.timerInterval);
           activeRun = null;
         }
+        clearLastHeatData();
         onFinish('setup');
         return;
       }
@@ -92,7 +93,7 @@ export function renderTimer(app, obstacles, onFinish) {
             clearInterval(activeRun.timerInterval);
             activeRun = null;
           }
-          clearRuns();
+          clearLastHeatData();
           onFinish('setup');
         },
         onDelete: () => {
@@ -100,7 +101,7 @@ export function renderTimer(app, obstacles, onFinish) {
             clearInterval(activeRun.timerInterval);
             activeRun = null;
           }
-          clearRuns();
+          clearLastHeatData();
           onFinish('setup');
         },
       });
@@ -127,29 +128,56 @@ export function renderTimer(app, obstacles, onFinish) {
       return;
     }
 
+    const players = loadPlayers();
+    const runs = loadRuns();
+    const ranNames = new Set(runs.map(r => r.contestantName));
+
     section.innerHTML = `
       <div class="card runner-card">
         <div class="card-title">
           <span class="card-icon">🚩</span>
           המתחרה הבא
         </div>
+        ${players.length > 0 ? `
+          <p class="picker-label">בחרו מתחרה מהרשימה:</p>
+          <div class="player-chips">
+            ${players.map(name => `
+              <button class="player-chip ${contestantName === name ? 'player-chip-selected' : ''} ${ranNames.has(name) ? 'player-chip-ran' : ''}" data-name="${esc(name)}">
+                ${esc(name)}
+                ${ranNames.has(name) ? '<span class="chip-check">✓</span>' : ''}
+              </button>
+            `).join('')}
+          </div>
+          <div class="picker-divider"><span>או הזינו שם חדש</span></div>
+        ` : ''}
         <div class="name-row">
-          <input type="text" class="name-input" placeholder="הזינו שם מתחרה..." value="${esc(contestantName)}" autofocus />
+          <input type="text" class="name-input" placeholder="הזינו שם מתחרה..." value="${esc(contestantName)}" ${players.length > 0 ? '' : 'autofocus'} />
           <button class="btn-start-run" ${contestantName.length === 0 ? 'disabled' : ''}>
             <span class="card-icon">🚩</span>
             התחלת ריצה
           </button>
         </div>
-        <p class="input-hint">השעון מתחיל ברגע לחיצת זינוק במכשול הראשון. לחצו Enter כדי להתחיל.</p>
+        <p class="input-hint">השעון מתחיל ברגע לחיצת זינוק במכשול הראשון.</p>
       </div>
     `;
 
     const input = section.querySelector('.name-input');
     const startBtn = section.querySelector('.btn-start-run');
 
+    section.querySelectorAll('.player-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        contestantName = chip.dataset.name;
+        input.value = contestantName;
+        startBtn.disabled = false;
+        section.querySelectorAll('.player-chip').forEach(c => c.classList.remove('player-chip-selected'));
+        chip.classList.add('player-chip-selected');
+      });
+    });
+
     input.addEventListener('input', () => {
       contestantName = input.value.trim();
       startBtn.disabled = contestantName.length === 0;
+      section.querySelectorAll('.player-chip').forEach(c => c.classList.remove('player-chip-selected'));
     });
 
     const startHandler = () => {
@@ -166,7 +194,9 @@ export function renderTimer(app, obstacles, onFinish) {
     });
 
     startBtn.addEventListener('click', startHandler);
-    setTimeout(() => input.focus(), 50);
+    if (players.length === 0) {
+      setTimeout(() => input.focus(), 50);
+    }
   }
 
   function startNewRun() {
@@ -271,8 +301,8 @@ export function renderTimer(app, obstacles, onFinish) {
               <div class="obstacle-row ${statusClass}">
                 <div class="obstacle-badge ${isPassed ? 'badge-passed' : isCurrent ? 'badge-current' : isFallen ? 'badge-fallen' : 'badge-locked'}">${i + 1}</div>
                 <div class="obstacle-name-wrap">
-                  <span class="obstacle-name">${name}</span>
-                  <span class="obstacle-name-en">${OBSTACLE_EN.get(name) || ''}</span>
+                  <span class="obstacle-name">${esc(name)}</span>
+                  <span class="obstacle-name-en">${esc(OBSTACLE_EN.get(name) || '')}</span>
                 </div>
                 ${content}
               </div>
@@ -483,11 +513,13 @@ export function renderTimer(app, obstacles, onFinish) {
 
   function handlePass(obstacleIndex, pressStart) {
     if (!activeRun) return;
-    const elapsed = (pressStart ?? Date.now()) - activeRun.startTime;
     const obstacleName = obstacles[obstacleIndex];
 
     const startEvent = activeRun.events.find(e => e.type === 'OBSTACLE_START' && e.obstacle === obstacleName);
-    const obstacleStartTime = startEvent ? startEvent.time : 0;
+    if (!startEvent) return;
+
+    const elapsed = (pressStart ?? Date.now()) - activeRun.startTime;
+    const obstacleStartTime = startEvent.time;
 
     activeRun.events.push({ time: elapsed, type: 'PASSED', obstacle: obstacleName, obstacleStartTime });
     activeRun.currentObstacleIndex++;
@@ -516,11 +548,13 @@ export function renderTimer(app, obstacles, onFinish) {
 
   function handleFall(obstacleIndex, pressStart) {
     if (!activeRun) return;
-    const elapsed = (pressStart ?? Date.now()) - activeRun.startTime;
     const obstacleName = obstacles[obstacleIndex];
 
     const startEvent = activeRun.events.find(e => e.type === 'OBSTACLE_START' && e.obstacle === obstacleName);
-    const obstacleStartTime = startEvent ? startEvent.time : 0;
+    if (!startEvent) return;
+
+    const elapsed = (pressStart ?? Date.now()) - activeRun.startTime;
+    const obstacleStartTime = startEvent.time;
 
     activeRun.events.push({ time: elapsed, type: 'FALL', obstacle: obstacleName, obstacleStartTime });
 
@@ -612,6 +646,10 @@ export function renderTimer(app, obstacles, onFinish) {
           activeRun.events.pop();
           activeRun.currentObstacleIndex = Math.max(0, activeRun.currentObstacleIndex - 1);
         }
+        // Adjust startTime so the timer resumes from wallPendingTime,
+        // not from the actual elapsed wall-decision pause.
+        const pauseDuration = Date.now() - (activeRun.startTime + activeRun.wallPendingTime);
+        activeRun.startTime += pauseDuration;
         activeRun.wallUnlocked = false;
         activeRun.wallPendingTime = null;
         activeRun.wallResult = null;
@@ -663,8 +701,11 @@ export function renderTimer(app, obstacles, onFinish) {
     const sortedRuns = [...runs].sort((a, b) => {
       if (a.dnf && !b.dnf) return 1;
       if (!a.dnf && b.dnf) return -1;
-      if (a.dnf && b.dnf) return getRankTime(a) - getRankTime(b);
-      return a.totalTime - b.totalTime;
+      if (!a.dnf && !b.dnf) return a.totalTime - b.totalTime;
+      const aObs = getObstaclesCompleted(a);
+      const bObs = getObstaclesCompleted(b);
+      if (aObs !== bObs) return bObs - aObs;
+      return getRankTime(a) - getRankTime(b);
     });
 
     section.innerHTML = `
@@ -689,7 +730,7 @@ export function renderTimer(app, obstacles, onFinish) {
                   <th class="th-rank">דירוג</th>
                   <th class="th-order">סדר</th>
                   <th>מתחרה</th>
-                  ${obstacles.map(o => `<th class="th-obstacle"><span class="th-he">${o}</span><span class="th-en">${OBSTACLE_EN.get(o) || ''}</span></th>`).join('')}
+                  ${obstacles.map(o => `<th class="th-obstacle"><span class="th-he">${esc(o)}</span><span class="th-en">${esc(OBSTACLE_EN.get(o) || '')}</span></th>`).join('')}
                   <th class="th-mega" title="תוצאת קיר">קיר</th>
                   <th>סה"כ</th>
                 </tr>
@@ -706,8 +747,9 @@ export function renderTimer(app, obstacles, onFinish) {
                   }
                   const isDNF = run.dnf;
                   const startOrder = orderMap.get(run);
+                  const rankClass = !isDNF && rank <= 3 ? `row-rank-${rank}` : '';
                   return `
-                    <tr class="${isDNF ? 'row-dnf' : ''}">
+                    <tr class="${isDNF ? 'row-dnf' : rankClass}">
                       <td class="td-rank">${medal}</td>
                       <td class="td-order">${startOrder}</td>
                       <td class="td-name">${esc(run.contestantName)}</td>

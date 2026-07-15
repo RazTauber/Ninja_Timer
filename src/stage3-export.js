@@ -1,4 +1,4 @@
-import { loadRuns, clearRuns, loadObstacles, formatSeconds, downloadRunsCSV, normalizeWallResult, wallResultDisplay, esc } from './data.js';
+import { loadRuns, clearLastHeatData, loadObstacles, formatSeconds, downloadRunsCSV, normalizeWallResult, wallResultDisplay, esc } from './data.js';
 
 export function renderExport(app, onBack) {
   const runs = loadRuns();
@@ -58,7 +58,7 @@ export function renderExport(app, onBack) {
   if (clearBtn) {
     clearBtn.addEventListener('click', () => {
       if (confirm('האם אתם בטוחים? פעולה זו תמחק את כל הריצות שנרשמו.')) {
-        clearRuns();
+        clearLastHeatData();
         renderExport(app, onBack);
       }
     });
