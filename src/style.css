@@ -1717,7 +1717,7 @@ html, body {
   color: var(--offwhite);
 }
 
-.th-rank {
+.scoreboard-table .th-rank {
   width: 3.5rem;
   text-align: center;
   color: var(--gold-text);
@@ -1730,7 +1730,7 @@ html, body {
   box-shadow: -4px 0 8px rgba(0, 0, 0, 0.35);
 }
 
-.td-rank {
+.scoreboard-table .td-rank {
   text-align: center;
   font-size: 1.3rem;
   font-weight: 800;
