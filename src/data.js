@@ -1,3 +1,5 @@
+import * as XLSX from 'xlsx';
+
 /**
  * SECURITY POLICY — LOCAL-ONLY DATA STORAGE
  *
@@ -306,6 +308,8 @@ function downloadRunsCSV(runs, obstacles) {
   const sortedForRank = rankRuns(runs);
   const rankMap = new Map(sortedForRank.map((r, i) => [r, i + 1]));
 
+  const headlineText = `נינג'ה ישראל — תוצאות תחרות — ${formatHebrewDate(loadCompDate())} — מקצה ${currentHeat}`;
+
   const dataRows = sortedForRank.map((run) => {
     const runDate = new Date(run.startTime);
     const dateStr = `${String(runDate.getDate()).padStart(2, '0')}/${String(runDate.getMonth() + 1).padStart(2, '0')}/${runDate.getFullYear()}`;
@@ -318,7 +322,6 @@ function downloadRunsCSV(runs, obstacles) {
     }
 
     const finished = !run.dnf && obstacles.every(o => o in obstacleTimes);
-
     const order = run.startOrder ?? (runs.indexOf(run) + 1);
     const rank = rankMap.get(run);
 
@@ -351,113 +354,24 @@ function downloadRunsCSV(runs, obstacles) {
     ];
   });
 
-  const colCount = headers.length;
-  const headerHtml = headers.map(h => `<th>${esc(h)}</th>`).join('');
-  const rowsHtml = dataRows.map(row =>
-    `<tr>${row.map((cell, i) => {
-      const str = String(cell);
-      const obstacleStartIdx = 5;
-      const obstacleEndIdx = 5 + obstacles.length * 2;
-      const isStartCol = i >= obstacleStartIdx && i < obstacleEndIdx && (i - obstacleStartIdx) % 2 === 0;
-      let cls = '';
-      if (i === 2) cls = 'cell-rank';
-      else if (i === 3) cls = 'cell-order';
-      else if (isStartCol && str !== '-') cls = 'cell-start';
-      else if (str === '-') cls = 'cell-dash';
-      else if (str.includes('נפילה')) cls = 'cell-fall';
-      else if (i === row.length - 1 && str.includes('MEGA')) cls = 'cell-wall-mega';
-      else if (i === row.length - 1 && str.includes('Wall')) cls = 'cell-wall-pass';
-      else if (i === row.length - 1 && str.includes('Failed')) cls = 'cell-wall-fail';
-      else if (i === row.length - 2 && str !== '-') cls = 'cell-finish';
-      else if (i === row.length - 3) cls = 'cell-total';
-      return `<td class="${cls}">${esc(str)}</td>`;
-    }).join('')}</tr>`
-  ).join('\n');
+  const wsData = [[headlineText], headers, ...dataRows];
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
 
-  const headlineText = `נינג'ה ישראל — תוצאות תחרות — ${formatHebrewDate(loadCompDate())} — מקצה ${currentHeat}`;
+  ws['!cols'] = headers.map(() => ({ wch: 18 }));
+  if (!ws['!merges']) ws['!merges'] = [];
+  ws['!merges'].push({ s: { r: 0, c: 0 }, e: { r: 0, c: headers.length - 1 } });
 
-  const html = `<html xmlns:x="urn:schemas-microsoft-com:office:excel" dir="rtl" lang="he">
-<head>
-  <meta charset="UTF-8">
-  <!--[if gte mso 9]><xml>
-  <x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet>
-    <x:Name>תוצאות</x:Name>
-    <x:WorksheetOptions><x:DisplayRightToLeft/></x:WorksheetOptions>
-  </x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook>
-  </xml><![endif]-->
-  <style>
-    body {
-      direction: rtl;
-      font-family: Arial, Calibri, sans-serif;
-      background: #FFFFFF;
-      color: #1A1A2E;
-      margin: 0;
-      padding: 0;
-    }
-    table {
-      border-collapse: collapse;
-      direction: rtl;
-    }
-    td, th {
-      mso-number-format:'\\@';
-      white-space: nowrap;
-    }
-    .headline {
-      font-family: Arial, sans-serif;
-      font-size: 14px;
-      font-weight: 900;
-      color: #1E52E0;
-      text-align: right;
-      border: none;
-      padding: 8px 12px;
-    }
-    th {
-      background: #1E52E0;
-      color: #FFFFFF;
-      font-weight: 700;
-      font-size: 11px;
-      letter-spacing: 1px;
-      border: 1px solid #BBCBE8;
-      padding: 8px 12px;
-      text-align: right;
-    }
-    td {
-      border: 1px solid #DDDEEF;
-      padding: 7px 12px;
-      text-align: right;
-      background: #FFFFFF;
-      color: #1A1A2E;
-      font-size: 12px;
-    }
-    tr:nth-child(even) td { background: #F4F6FC; }
-    .cell-finish { color: #B8860B; font-weight: 700; }
-    .cell-fall   { color: #CC1A22; font-weight: 700; }
-    .cell-start  { color: #1E52E0; font-weight: 600; }
-    .cell-dnf    { color: #CC1A22; }
-    .cell-dash   { color: #AAAACC; }
-    .cell-rank   { color: #1E52E0; font-weight: 800; font-size: 13px; text-align: center; }
-    .cell-order  { color: #8899CC; font-size: 11px; text-align: center; }
-    .cell-wall-mega { color: #B8860B; font-weight: 700; font-size: 14px; text-align: center; }
-    .cell-wall-pass { color: #1E52E0; font-weight: 600; text-align: center; }
-    .cell-wall-fail { color: #CC1A22; font-weight: 600; text-align: center; }
-    .cell-total { font-weight: 700; text-align: center; }
-  </style>
-</head>
-<body>
-<table>
-  <tr><td colspan="${colCount}" class="headline">${esc(headlineText)}</td></tr>
-  <tr>${headerHtml}</tr>
-  ${rowsHtml}
-</table>
-</body>
-</html>`;
+  const wb = XLSX.utils.book_new();
+  wb.Workbook = { Views: [{ RTL: true }] };
+  XLSX.utils.book_append_sheet(wb, ws, 'תוצאות');
 
-  const blob = new Blob([html], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+  const xlsxBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+  const blob = new Blob([xlsxBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
   const url = URL.createObjectURL(blob);
 
   const today = new Date();
   const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-  const filename = `תוצאות-נינגה-${dateStr}-מקצה-${currentHeat}.xls`;
+  const filename = `תוצאות-נינגה-${dateStr}-מקצה-${currentHeat}.xlsx`;
 
   const a = document.createElement('a');
   a.href = url;
