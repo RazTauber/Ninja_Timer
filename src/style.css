@@ -1695,6 +1695,22 @@ html, body {
   text-align: center;
 }
 
+.th-obstacle .th-num {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--blue-light);
+  color: var(--white);
+  font-family: var(--font-display);
+  font-size: 0.85rem;
+  font-weight: 800;
+  margin: 0 auto 4px;
+  box-shadow: 0 0 10px rgba(61,127,255,0.5);
+}
+
 .th-obstacle .th-en {
   text-align: center;
 }
@@ -2293,6 +2309,48 @@ html, body {
   0% { transform: scale(0.95); opacity: 0.5; }
   50% { transform: scale(1.02); }
   100% { transform: scale(1); opacity: 1; }
+}
+
+/* ── Live Rank Badge (shown during active run) ───────── */
+.live-rank-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 10px;
+  background: var(--navy-deep);
+  border: 1px solid var(--border);
+  min-height: 36px;
+  transition: all 0.3s ease;
+}
+
+.live-rank-badge:empty {
+  display: none;
+}
+
+.live-rank-badge.rank-podium {
+  border-color: var(--gold);
+  background: var(--gold-soft);
+  box-shadow: 0 0 12px rgba(232, 181, 0, 0.2);
+}
+
+.live-rank-badge .rank-number {
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  font-weight: 900;
+  color: var(--white);
+  letter-spacing: -0.5px;
+}
+
+.live-rank-badge.rank-podium .rank-number {
+  color: var(--gold-text);
+}
+
+.live-rank-badge .rank-context {
+  font-family: var(--font-body);
+  font-size: 0.8rem;
+  color: var(--gray);
+  white-space: nowrap;
 }
 
 /* ── Scoreboard: Wall Result Column ──────────────────── */

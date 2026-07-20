@@ -35,7 +35,7 @@ export function renderExport(app, onBack) {
         </div>
 
         <button class="btn-primary btn-download">
-          ⬇ הורדת CSV
+          ⬇ הורדת Excel
         </button>
 
         <button class="btn-danger btn-clear">

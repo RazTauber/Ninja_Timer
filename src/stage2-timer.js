@@ -1,10 +1,52 @@
-import { saveRun, loadRuns, clearLastHeatData, formatTime, formatSeconds, formatHebrewDate, loadCompDate, downloadRunsCSV, WALL_RESULTS, normalizeWallResult, OBSTACLE_EN, loadHeatNumber, loadPlayers, rankRuns, esc } from './data.js';
+import { saveRun, loadRuns, clearLastHeatData, formatTime, formatSeconds, formatHebrewDate, loadCompDate, downloadRunsCSV, WALL_RESULTS, normalizeWallResult, OBSTACLE_EN, loadHeatNumber, loadPlayers, rankRuns, getObstaclesCompleted, getRankTime, esc } from './data.js';
 
 const HOLD_DURATION = 1200;
+const RANK_UPDATE_INTERVAL = 500;
+
+function computeLiveRank(activeRun, obstacles) {
+  if (!activeRun || !activeRun.timerStarted) return null;
+
+  const runs = loadRuns();
+  if (runs.length === 0) return { rank: 1, total: 1, trend: null };
+
+  const elapsed = Date.now() - activeRun.startTime;
+  const passedCount = activeRun.events.filter(e => e.type === 'PASSED').length;
+
+  // Wall is treated as an obstacle — runner is NOT a finisher until wall result
+  // is recorded (MEGA_WALL or WALL). During the wall stage they rank as a DNF
+  // with all regular obstacles completed, using elapsed time.
+  const wallCompleted = activeRun.events.some(
+    e => e.type === 'WALL_RESULT' && e.wallResult !== WALL_RESULTS.FAILED
+  );
+  const isFinisher = wallCompleted;
+
+  const hypothetical = {
+    dnf: !isFinisher,
+    totalTime: elapsed,
+    events: activeRun.events,
+    wallFailed: false,
+  };
+
+  const allRuns = [...runs, hypothetical];
+  const sorted = [...allRuns].sort((a, b) => {
+    if (a.dnf && !b.dnf) return 1;
+    if (!a.dnf && b.dnf) return -1;
+    if (!a.dnf && !b.dnf) return a.totalTime - b.totalTime;
+    const aObs = getObstaclesCompleted(a);
+    const bObs = getObstaclesCompleted(b);
+    if (aObs !== bObs) return bObs - aObs;
+    return getRankTime(a) - getRankTime(b);
+  });
+
+  const rank = sorted.indexOf(hypothetical) + 1;
+  return { rank, total: allRuns.length, trend: null };
+}
 
 export function renderTimer(app, obstacles, onFinish) {
   let contestantName = '';
   let activeRun = null;
+  let rankInterval = null;
+  let lastRank = null;
 
   function showNewCompModal(runCount, { onExport, onDelete }) {
     const existing = document.querySelector('.modal-overlay');
@@ -80,6 +122,7 @@ export function renderTimer(app, obstacles, onFinish) {
       if (runs.length === 0) {
         if (activeRun) {
           clearInterval(activeRun.timerInterval);
+          stopRankInterval();
           activeRun = null;
         }
         clearLastHeatData();
@@ -91,6 +134,7 @@ export function renderTimer(app, obstacles, onFinish) {
           downloadRunsCSV(loadRuns(), obstacles);
           if (activeRun) {
             clearInterval(activeRun.timerInterval);
+            stopRankInterval();
             activeRun = null;
           }
           clearLastHeatData();
@@ -99,6 +143,7 @@ export function renderTimer(app, obstacles, onFinish) {
         onDelete: () => {
           if (activeRun) {
             clearInterval(activeRun.timerInterval);
+            stopRankInterval();
             activeRun = null;
           }
           clearLastHeatData();
@@ -236,6 +281,11 @@ export function renderTimer(app, obstacles, onFinish) {
       }, 16);
     }
 
+    if (run.timerStarted && !run.finished && !rankInterval) {
+      updateRankBadge();
+      rankInterval = setInterval(updateRankBadge, RANK_UPDATE_INTERVAL);
+    }
+
     section.innerHTML = `
       <div class="card timer-card ${run.wallUnlocked ? 'timer-card-wall-open' : ''}">
         <div class="timer-top">
@@ -246,6 +296,7 @@ export function renderTimer(app, obstacles, onFinish) {
           <div class="timer-display">
             <span class="timer-value">${formatTime(elapsed)}</span>
           </div>
+          <div class="live-rank-badge" id="live-rank-badge"></div>
         </div>
 
         <div class="timer-progress-bar">
@@ -389,9 +440,39 @@ export function renderTimer(app, obstacles, onFinish) {
     attachTimerEvents(section);
   }
 
+  function updateRankBadge() {
+    const badge = document.getElementById('live-rank-badge');
+    if (!badge || !activeRun) return;
+
+    const result = computeLiveRank(activeRun, obstacles);
+    if (!result) { badge.innerHTML = ''; return; }
+
+    const { rank, total } = result;
+    const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : '';
+    const trendIcon = lastRank !== null
+      ? (rank < lastRank ? ' ↑' : rank > lastRank ? ' ↓' : '')
+      : '';
+    lastRank = rank;
+
+    badge.innerHTML = `
+      <span class="rank-number">${medal || '#'}${medal ? '' : rank}</span>
+      <span class="rank-context">מתוך ${total}${trendIcon}</span>
+    `;
+    badge.className = `live-rank-badge ${rank <= 3 ? 'rank-podium' : ''}`;
+  }
+
+  function stopRankInterval() {
+    if (rankInterval) {
+      clearInterval(rankInterval);
+      rankInterval = null;
+    }
+    lastRank = null;
+  }
+
   function handleWallResult(result) {
     if (!activeRun || activeRun.finished) return;
     activeRun.finished = true;
+    stopRankInterval();
     const elapsed = Date.now() - activeRun.startTime;
 
     activeRun.events.push({
@@ -620,6 +701,7 @@ export function renderTimer(app, obstacles, onFinish) {
     clearInterval(activeRun.timerInterval);
     activeRun.timerInterval = null;
     activeRun.finished = true;
+    stopRankInterval();
 
     activeRun.events.push({ time: elapsed, type: 'COMPLETED', obstacle: null });
 
@@ -700,6 +782,7 @@ export function renderTimer(app, obstacles, onFinish) {
   function cancelRun() {
     if (!activeRun) return;
     clearInterval(activeRun.timerInterval);
+    stopRankInterval();
     activeRun = null;
     renderRunnerSection();
   }
@@ -800,7 +883,7 @@ export function renderTimer(app, obstacles, onFinish) {
                   <th class="th-rank">דירוג</th>
                   <th class="th-order">סדר</th>
                   <th>מתחרה</th>
-                  ${obstacles.map(o => `<th class="th-obstacle"><span class="th-he">${o}</span><span class="th-en">${OBSTACLE_EN.get(o) || ''}</span></th>`).join('')}
+                  ${obstacles.map((o, i) => `<th class="th-obstacle"><span class="th-num">${i + 1}</span><span class="th-he">${o}</span><span class="th-en">${OBSTACLE_EN.get(o) || ''}</span></th>`).join('')}
                   <th class="th-mega" title="תוצאת קיר">קיר</th>
                   <th>סה"כ</th>
                 </tr>

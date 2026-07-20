@@ -1,4 +1,4 @@
-import * as XLSX from 'xlsx';
+import * as XLSX from 'xlsx-js-style';
 
 /**
  * SECURITY POLICY — LOCAL-ONLY DATA STORAGE
@@ -357,9 +357,180 @@ function downloadRunsCSV(runs, obstacles) {
   const wsData = [[headlineText], headers, ...dataRows];
   const ws = XLSX.utils.aoa_to_sheet(wsData);
 
-  ws['!cols'] = headers.map(() => ({ wch: 18 }));
+  ws['!cols'] = headers.map((h, i) => {
+    if (i === 4) return { wch: 22 };
+    if (h.includes('זינוק') || h.includes('תוצאה')) return { wch: 16 };
+    if (i <= 3) return { wch: 10 };
+    return { wch: 18 };
+  });
   if (!ws['!merges']) ws['!merges'] = [];
   ws['!merges'].push({ s: { r: 0, c: 0 }, e: { r: 0, c: headers.length - 1 } });
+
+  const totalCols = headers.length;
+  const totalRows = dataRows.length + 2;
+
+  const thin = { style: 'thin', color: { rgb: '162050' } };
+  const borderAll = { top: thin, bottom: thin, left: thin, right: thin };
+
+  const titleStyle = {
+    font: { bold: true, sz: 14, color: { rgb: 'FFFFFF' } },
+    fill: { fgColor: { rgb: '0A1430' } },
+    alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
+    border: borderAll,
+  };
+
+  const headerStyle = {
+    font: { bold: true, sz: 11, color: { rgb: 'C8D4F0' } },
+    fill: { fgColor: { rgb: '1E52E0' } },
+    alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
+    border: borderAll,
+  };
+
+  const obstStartHeaderStyle = {
+    font: { bold: true, sz: 10, color: { rgb: 'D8E4F8' } },
+    fill: { fgColor: { rgb: '2A68F8' } },
+    alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
+    border: borderAll,
+  };
+
+  const obstResultHeaderStyle = {
+    font: { bold: true, sz: 10, color: { rgb: 'D8E4F8' } },
+    fill: { fgColor: { rgb: '1E52E0' } },
+    alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
+    border: borderAll,
+  };
+
+  const dataStyleEven = {
+    font: { sz: 11, color: { rgb: '060810' } },
+    fill: { fgColor: { rgb: 'FFFFFF' } },
+    alignment: { horizontal: 'center', vertical: 'center' },
+    border: borderAll,
+  };
+
+  const dataStyleOdd = {
+    font: { sz: 11, color: { rgb: '060810' } },
+    fill: { fgColor: { rgb: 'E8EDF8' } },
+    alignment: { horizontal: 'center', vertical: 'center' },
+    border: borderAll,
+  };
+
+  const nameStyleEven = {
+    font: { bold: true, sz: 11, color: { rgb: '0A1430' } },
+    fill: { fgColor: { rgb: 'FFFFFF' } },
+    alignment: { horizontal: 'right', vertical: 'center' },
+    border: borderAll,
+  };
+
+  const nameStyleOdd = {
+    font: { bold: true, sz: 11, color: { rgb: '0A1430' } },
+    fill: { fgColor: { rgb: 'E8EDF8' } },
+    alignment: { horizontal: 'right', vertical: 'center' },
+    border: borderAll,
+  };
+
+  const fallStyle = (isOdd) => ({
+    font: { sz: 11, color: { rgb: 'CC1A22' } },
+    fill: { fgColor: { rgb: isOdd ? 'F8E0E1' : 'FCECED' } },
+    alignment: { horizontal: 'center', vertical: 'center' },
+    border: borderAll,
+  });
+
+  const finishedYesStyle = (isOdd) => ({
+    font: { bold: true, sz: 11, color: { rgb: 'B8860B' } },
+    fill: { fgColor: { rgb: isOdd ? 'FFF5D0' : 'FFFBE6' } },
+    alignment: { horizontal: 'center', vertical: 'center' },
+    border: borderAll,
+  });
+
+  const finishedNoStyle = (isOdd) => ({
+    font: { bold: true, sz: 11, color: { rgb: 'CC1A22' } },
+    fill: { fgColor: { rgb: isOdd ? 'F8E0E1' : 'FCECED' } },
+    alignment: { horizontal: 'center', vertical: 'center' },
+    border: borderAll,
+  });
+
+  const megaWallStyle = (isOdd) => ({
+    font: { bold: true, sz: 11, color: { rgb: 'E8B500' } },
+    fill: { fgColor: { rgb: isOdd ? 'FFF5D0' : 'FFFBE6' } },
+    alignment: { horizontal: 'center', vertical: 'center' },
+    border: borderAll,
+  });
+
+  const wallPassStyle = (isOdd) => ({
+    font: { bold: true, sz: 11, color: { rgb: 'B8860B' } },
+    fill: { fgColor: { rgb: isOdd ? 'FFF8DC' : 'FFFDF0' } },
+    alignment: { horizontal: 'center', vertical: 'center' },
+    border: borderAll,
+  });
+
+  const wallFailStyle = (isOdd) => ({
+    font: { bold: true, sz: 11, color: { rgb: 'CC1A22' } },
+    fill: { fgColor: { rgb: isOdd ? 'F8E0E1' : 'FCECED' } },
+    alignment: { horizontal: 'center', vertical: 'center' },
+    border: borderAll,
+  });
+
+  const rankStyle = (isOdd, rank) => {
+    const base = {
+      font: { bold: true, sz: 12, color: { rgb: '060810' } },
+      fill: { fgColor: { rgb: isOdd ? 'E8EDF8' : 'FFFFFF' } },
+      alignment: { horizontal: 'center', vertical: 'center' },
+      border: borderAll,
+    };
+    if (rank === 1) { base.fill = { fgColor: { rgb: 'FFF5D0' } }; base.font.color = { rgb: 'E8B500' }; }
+    else if (rank === 2) { base.fill = { fgColor: { rgb: 'E8EDF8' } }; base.font.color = { rgb: '5870A0' }; }
+    else if (rank === 3) { base.fill = { fgColor: { rgb: 'F5E6D0' } }; base.font.color = { rgb: '8B5E3C' }; }
+    return base;
+  };
+
+  const finishedColIdx = totalCols - 2;
+  const wallColIdx = totalCols - 1;
+
+  for (let c = 0; c < totalCols; c++) {
+    const addr = XLSX.utils.encode_cell({ r: 0, c });
+    if (ws[addr]) ws[addr].s = titleStyle;
+  }
+
+  for (let c = 0; c < totalCols; c++) {
+    const addr = XLSX.utils.encode_cell({ r: 1, c });
+    if (ws[addr]) {
+      const hText = headers[c] || '';
+      if (hText.includes('זינוק')) ws[addr].s = obstStartHeaderStyle;
+      else if (hText.includes('תוצאה')) ws[addr].s = obstResultHeaderStyle;
+      else ws[addr].s = headerStyle;
+    }
+  }
+
+  for (let r = 0; r < dataRows.length; r++) {
+    const isOdd = r % 2 === 1;
+    const row = dataRows[r];
+    const rowRank = row[2];
+
+    for (let c = 0; c < totalCols; c++) {
+      const addr = XLSX.utils.encode_cell({ r: r + 2, c });
+      if (!ws[addr]) continue;
+      const val = String(ws[addr].v || '');
+
+      if (c === 2) {
+        ws[addr].s = rankStyle(isOdd, rowRank);
+      } else if (c === 4) {
+        ws[addr].s = isOdd ? nameStyleOdd : nameStyleEven;
+      } else if (c === finishedColIdx) {
+        ws[addr].s = val === 'כן' ? finishedYesStyle(isOdd) : finishedNoStyle(isOdd);
+      } else if (c === wallColIdx) {
+        if (val.includes('MEGA')) ws[addr].s = megaWallStyle(isOdd);
+        else if (val.includes('✓')) ws[addr].s = wallPassStyle(isOdd);
+        else if (val.includes('✕') || val.includes('Failed')) ws[addr].s = wallFailStyle(isOdd);
+        else ws[addr].s = isOdd ? dataStyleOdd : dataStyleEven;
+      } else if (val.includes('נפילה')) {
+        ws[addr].s = fallStyle(isOdd);
+      } else {
+        ws[addr].s = isOdd ? dataStyleOdd : dataStyleEven;
+      }
+    }
+  }
+
+  ws['!rows'] = [{ hpx: 32 }, { hpx: 28 }, ...dataRows.map(() => ({ hpx: 24 }))];
 
   const wb = XLSX.utils.book_new();
   wb.Workbook = { Views: [{ RTL: true }] };
@@ -369,8 +540,8 @@ function downloadRunsCSV(runs, obstacles) {
   const blob = new Blob([xlsxBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
   const url = URL.createObjectURL(blob);
 
-  const today = new Date();
-  const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  const compDate = loadCompDate();
+  const dateStr = compDate || getTodayISO();
   const filename = `תוצאות-נינגה-${dateStr}-מקצה-${currentHeat}.xlsx`;
 
   const a = document.createElement('a');
