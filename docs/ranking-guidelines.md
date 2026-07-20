@@ -26,74 +26,45 @@ For fallers, the **start time** of the obstacle where they fell is the ranking v
 
 ---
 
-## 2. Review of Current App Components
+## 2. Current Implementation
 
-### Live Scoreboard (`stage2-timer.js`, lines 664–669)
+### Unified Ranking Function (`data.js`)
 
-```javascript
-const sortedRuns = [...runs].sort((a, b) => {
-  if (a.dnf && !b.dnf) return 1;
-  if (!a.dnf && b.dnf) return -1;
-  if (a.dnf && b.dnf) return getRankTime(a) - getRankTime(b);
-  return a.totalTime - b.totalTime;
-});
-```
-
-**Issues:**
-- DNF ranking uses `getRankTime(run)` which returns `run.totalTime` (the time they fell).
-- Does NOT consider the number of obstacles completed.
-- Does NOT use the start time of the fall obstacle.
-
-### Export Logic (`data.js`, lines 264–270)
+Both the live scoreboard and export use the shared `rankRuns()` function:
 
 ```javascript
-const sortedForRank = [...runs].sort((a, b) => {
-  if (a.dnf && !b.dnf) return 1;
-  if (!a.dnf && b.dnf) return -1;
-  if (a.dnf && b.dnf) return getRankTime(a) - getRankTime(b);
-  return a.totalTime - b.totalTime;
-});
-```
-
-**Same issues** as the scoreboard.
-
-### `getRankTime` helper (`data.js`, line 255–257)
-
-```javascript
-function getRankTime(run) {
-  return run.totalTime;
+function rankRuns(runs) {
+  return [...runs].sort((a, b) => {
+    if (a.dnf && !b.dnf) return 1;
+    if (!a.dnf && b.dnf) return -1;
+    if (!a.dnf && !b.dnf) return a.totalTime - b.totalTime;
+    const aObs = getObstaclesCompleted(a);
+    const bObs = getObstaclesCompleted(b);
+    if (aObs !== bObs) return bObs - aObs;
+    return getRankTime(a) - getRankTime(b);
+  });
 }
 ```
 
-**Issue:** Returns `totalTime` (fall time) instead of the start time of the obstacle where the competitor fell.
-
-### Data Structure (run events)
-
-Each run stores events including:
-- `{ type: 'OBSTACLE_START', obstacle: name, time: elapsed }` — when the competitor starts an obstacle
-- `{ type: 'FALL', obstacle: name, time: elapsed, obstacleStartTime: ... }` — when they fall; already stores `obstacleStartTime`
-
-The `obstacleStartTime` field already exists on FALL events (set in `stage2-timer.js` line 524). This is the value needed for ranking.
-
----
-
-## 3. Revised Ranking Logic
-
-### New `getRankTime` function
+### `getRankTime` helper (`data.js`)
 
 ```javascript
 function getRankTime(run) {
-  // For DNF runs: return the START TIME of the obstacle they fell on
-  const fallEvent = run.events.find(e => e.type === 'FALL');
-  if (fallEvent && fallEvent.obstacleStartTime !== undefined) {
-    return fallEvent.obstacleStartTime;
+  if (run.dnf) {
+    if (run.wallFailed) {
+      const wallUnlock = run.events.find(e => e.type === 'WALL_UNLOCKED');
+      if (wallUnlock) return wallUnlock.time;
+    }
+    const fallEvent = run.events.find(e => e.type === 'FALL');
+    if (fallEvent && fallEvent.obstacleStartTime != null && isFinite(fallEvent.obstacleStartTime)) {
+      return fallEvent.obstacleStartTime;
+    }
   }
-  // Fallback: return totalTime (should not happen for properly recorded runs)
   return run.totalTime;
 }
 ```
 
-### New `getObstaclesCompleted` helper
+### `getObstaclesCompleted` helper (`data.js`)
 
 ```javascript
 function getObstaclesCompleted(run) {
@@ -101,28 +72,20 @@ function getObstaclesCompleted(run) {
 }
 ```
 
-### New sorting function (used in both scoreboard and export)
+### Data Structure (run events)
 
-```javascript
-function rankRuns(runs) {
-  return [...runs].sort((a, b) => {
-    // Tier 1 vs Tier 2
-    if (a.dnf && !b.dnf) return 1;
-    if (!a.dnf && b.dnf) return -1;
+Each run stores events including:
+- `{ type: 'OBSTACLE_START', obstacle: name, time: elapsed }` — when the competitor starts an obstacle
+- `{ type: 'FALL', obstacle: name, time: elapsed, obstacleStartTime: ... }` — when they fall; stores `obstacleStartTime`
+- `{ type: 'WALL_UNLOCKED', obstacle: null, time: elapsed }` — when the wall unlocks
 
-    // Both finishers: sort by end time (totalTime) ASC
-    if (!a.dnf && !b.dnf) return a.totalTime - b.totalTime;
+The `obstacleStartTime` field on FALL events is the value used for ranking tiebreakers.
 
-    // Both fallers: sort by obstacles completed DESC, then start time ASC
-    const aCompleted = getObstaclesCompleted(a);
-    const bCompleted = getObstaclesCompleted(b);
-    if (aCompleted !== bCompleted) return bCompleted - aCompleted;
+---
 
-    // Same number completed: sort by start time of fall obstacle ASC
-    return getRankTime(a) - getRankTime(b);
-  });
-}
-```
+## 3. Ranking Logic Summary
+
+All ranking functions are implemented in `data.js` and exported for use by both the scoreboard (`stage2-timer.js`) and the export function. See section 2 above for the actual implementation code.
 
 ---
 
@@ -137,19 +100,22 @@ The wall stage is treated as an obstacle for ranking purposes:
 
 ### Scoreboard Display
 
-For obstacles where a competitor fell, the scoreboard displays the **start time** of that obstacle (when they began it), not the time they fell. This matches the ranking tiebreaker logic.
+- **All obstacle columns** on the live scoreboard show the **start time (זינוק)** of each obstacle — the moment the competitor began that obstacle. This applies to both passed and fallen obstacles.
+- For obstacles where a competitor fell, the cell is highlighted in red to distinguish it from a pass, but the time shown is still the start time.
+- For wall-failed competitors, the wall column shows the wall unlock time (start time of wall obstacle).
+- The export (CSV) provides separate זינוק/תוצאה columns per obstacle for detailed analysis; the live scoreboard intentionally keeps only the start time for a compact view.
 
 ---
 
-## 5. Implementation Status (Completed)
+## 5. Implementation Status (Complete — Deployed)
 
-| Location | Change |
-|----------|--------|
-| `data.js` `getRankTime()` | Returns `fallEvent.obstacleStartTime` for regular DNF; `WALL_UNLOCKED` time for wall-failed |
-| `data.js` `getObstaclesCompleted()` | Counts `PASSED` events |
-| `data.js` `rankRuns()` | Unified sort: finishers by totalTime, fallers by obstacles DESC then start time ASC |
-| `data.js` `normalizeWallResult()` | Handles `wallFailed` flag |
-| `data.js` `downloadRunsCSV` | Shows obstacle start time for falls; uses `rankRuns()` |
-| `stage2-timer.js` `unlockWall()` | Timer keeps running (no clearInterval) |
-| `stage2-timer.js` `handleWallResult()` | Records elapsed at button press; FAILED → DNF |
-| `stage2-timer.js` scoreboard | Shows `obstacleStartTime` for fall cells |
+| Location | Function | Behavior |
+|----------|----------|----------|
+| `data.js` | `getRankTime()` | Returns `fallEvent.obstacleStartTime` for regular DNF; `WALL_UNLOCKED` time for wall-failed |
+| `data.js` | `getObstaclesCompleted()` | Counts `PASSED` events |
+| `data.js` | `rankRuns()` | Unified sort: finishers by totalTime, fallers by obstacles DESC then start time ASC |
+| `data.js` | `normalizeWallResult()` | Handles `wallFailed` flag and backward-compat with `megaWall` boolean |
+| `data.js` | `downloadRunsCSV()` | Shows obstacle start time for falls; uses `rankRuns()` for ordering |
+| `stage2-timer.js` | `unlockWall()` | Timer keeps running (no clearInterval) |
+| `stage2-timer.js` | `handleWallResult()` | Records elapsed at button press; FAILED → `dnf: true, wallFailed: true` |
+| `stage2-timer.js` | `renderScoreboard()` | Shows obstacle start times (זינוק) for all cells; fall cells highlighted red; uses `rankRuns()` |

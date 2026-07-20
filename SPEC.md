@@ -1,6 +1,10 @@
-# Ninja Timer -- App Specification
+# Ninja Timer — App Specification
 
-A competition timer for a **Ninja Warrior**-style obstacle course reality show. Designed for on-set production crew to time contestants as they run through obstacles, log events, and export results.
+A competition timer for **Ninja Israel** (נינג'ה ישראל) — a Ninja Warrior-style obstacle course reality show. Designed for on-set production crew to time contestants as they run through obstacles, log results, and export data.
+
+**Language:** Hebrew (RTL)  
+**Production URL:** https://ninja-timer.pages.dev/  
+**Version:** 1.1.0
 
 ---
 
@@ -9,187 +13,266 @@ A competition timer for a **Ninja Warrior**-style obstacle course reality show. 
 The app has three sequential stages:
 
 ```
-┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│  Stage 1: Setup │ ──> │  Stage 2: Timer  │ ──> │ Stage 3: Export │
-│                 │     │                  │     │                 │
-│ Pick obstacles  │     │ Time each player │     │ Download CSV    │
-│ Set their order │     │ Log obstacle     │     │ with all runs   │
-│                 │     │ completions &    │     │                 │
-│                 │     │ audit events     │     │                 │
-└─────────────────┘     └──────────────────┘     └─────────────────┘
+┌─────────────────────┐     ┌─────────────────────┐     ┌─────────────────────┐
+│  Stage 1: Setup     │ ──> │  Stage 2: Timer      │ ──> │ Stage 3: Export     │
+│                     │     │                      │     │                     │
+│ Pick obstacles      │     │ Time each player     │     │ Download Excel      │
+│ Set competition     │     │ Log obstacle         │     │ with all runs       │
+│   date & heat #     │     │   pass / fall        │     │                     │
+│ Register players    │     │ Wall stage outcome   │     │                     │
+└─────────────────────┘     └──────────────────────┘     └─────────────────────┘
 ```
 
 ---
 
-## Stage 1: Obstacle Selection (Setup)
+## Stage 1: Setup (בניית המסלול)
 
 ### Obstacle Pool
 
-There are 10 predefined obstacles available:
+There are **56 real obstacles** from Ninja Israel defined in the system. Each obstacle has a Hebrew name and an English translation. Examples:
 
-| # | Name |
-|---|------|
-| 1 | Obstacle 1 |
-| 2 | Obstacle 2 |
-| 3 | Obstacle 3 |
-| 4 | Obstacle 4 |
-| 5 | Obstacle 5 |
-| 6 | Obstacle 6 |
-| 7 | Obstacle 7 |
-| 8 | Obstacle 8 |
-| 9 | Obstacle 9 |
-| 10 | Obstacle 10 |
+| Hebrew | English |
+|--------|---------|
+| הגלשנים | Slide Surfer |
+| המטריות | Ring Around The Rosie |
+| לצאת מהמסגרת | Close The Gap |
+| שובר הלסתות | Jaw Breaker |
+| הקימורים המסוכנים | Dangerous Curves |
+| ... (56 total) | ... |
+
+The full list is defined in `src/data.js` as `ALL_OBSTACLES`.
 
 ### User Actions
 
-- Select which obstacles are included in this stage of the competition (any subset of the 10).
-- Arrange the selected obstacles in the desired run order (drag-and-drop or move up/down buttons).
-- Confirm the selection to proceed to Stage 2.
+1. **Set competition date** — date picker, defaults to today.
+2. **Set heat number** (מקצה) — auto-increments per date, can be overridden.
+3. **Register players** — enter contestant names into an ordered list; duplicates are rejected.
+4. **Select obstacles** — pick 3–10 obstacles from the pool and arrange them in run order (move up/down or remove). A search filter helps find obstacles in the pool.
+5. **Add custom obstacles** — free-text entry for obstacles not in the predefined pool.
+6. **Confirm** — press "התחל מקצה" (Start Heat) to proceed to Stage 2.
 
 ### Behavior
 
-- The obstacle configuration persists for **all contestants** in the current session.
-- The user can return to this screen to modify the course between sessions.
+- Obstacle configuration and player list persist in `localStorage` for the current session.
+- A "המשך תחרות" (Continue Heat) button allows resuming a previous heat if data exists.
+- Heat numbering is tracked per date in a heat cache.
 
 ---
 
-## Stage 2: Timer and Recording
+## Stage 2: Timer and Recording (טיימר)
+
+### Layout
+
+The timer screen has a header bar (date, heat info, stats, export button, new competition button), a runner section, and a live scoreboard below.
 
 ### Starting a Run
 
-1. User enters the **contestant name** (cast member).
-2. Presses **Start** -- the timer begins immediately.
+1. User selects a contestant from the registered player list (chip buttons) or types a new name.
+2. Presses **"התחלת ריצה"** (Start Run).
+3. The timer does NOT start yet — it waits for the first obstacle's "זינוק" (start) click.
+
+### Obstacle Flow (Per Obstacle)
+
+Each obstacle goes through this sequence:
+
+```
+[זינוק] → Timer starts (first obstacle only) → [עבר (Pass)] or [נפילה (Fall)]
+```
+
+1. **זינוק (Start Obstacle)** — operator clicks when the athlete begins the obstacle. On the first obstacle, this starts the global run timer.
+2. **עבר (Pass)** — marks obstacle as completed, records split time, advances to next obstacle.
+3. **נפילה (Fall)** — hold-to-confirm (1.2s), marks run as DNF, ends the run.
+
+### Hold-to-Confirm
+
+All "Fall" buttons require holding for 1.2 seconds to prevent accidental taps. The recorded timestamp is captured at **press start** (when the operator first touches), not at hold completion — this gives accurate competition times. Pass buttons (including the last obstacle) use a simple click.
 
 ### Timer Screen Layout
 
 ```
-┌──────────────────────────────────────────────┐
-│              NINJA TIMER                     │
-│                                              │
-│         ┌──────────────────┐                 │
-│         │    03:24.57      │  ← Live timer   │
-│         └──────────────────┘                 │
-│                                              │
-│  Player: John Smith                          │
-│  Current Obstacle: Obstacle 3 (3 of 6)      │
-│                                              │
-│  ┌──────────────┐    ┌──────────────┐        │
-│  │              │    │              │        │
-│  │   ✓ NEXT    │    │  ⚑ AUDIT    │        │
-│  │  OBSTACLE   │    │   LOG       │        │
-│  │              │    │              │        │
-│  │  (GREEN)    │    │   (RED)     │        │
-│  └──────────────┘    └──────────────┘        │
-│                                              │
-│  ── Live Event Log ──────────────────────    │
-│  00:00.00  Timer started                     │
-│  00:45.12  ✓ Passed Obstacle 1               │
-│  01:22.87  ✓ Passed Obstacle 2               │
-│  02:15.44  ⚑ Audit @ Obstacle 3             │
-│  03:01.33  ✓ Passed Obstacle 3               │
-│                                              │
-└──────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────┐
+│  ⏱ בריצה                           00:45:12      │
+│  [Contestant Name]                               │
+│                                                  │
+│  ── Progress Bar ──  3/6 מכשולים  50%            │
+│                                                  │
+│  ┌── Obstacle List ──────────────────────────┐   │
+│  │ ✓ 1. הגלשנים         ז׳ 00:00:00  00:12:34│   │
+│  │ ✓ 2. המטריות         ז׳ 00:12:50  00:25:67│   │
+│  │ ► 3. שובר הלסתות     [🏁 זינוק]           │   │
+│  │ 🔒 4. הקימורים                             │   │
+│  │ 🔒 5. הפעמונים                             │   │
+│  │ 🔒 6. הבניין                               │   │
+│  │ 🧱 הקיר  🔒 נעול — סיימו את כל המכשולים    │   │
+│  └────────────────────────────────────────────┘   │
+│                                                  │
+│  [→ ביטול ריצה]  [↩ ביטול הקלקה אחרונה]          │
+└──────────────────────────────────────────────────┘
 ```
 
-### Buttons
+### Wall Stage (הקיר)
 
-| Button | Color | Action |
-|--------|-------|--------|
-| **Next Obstacle** | Green (`#28A745`) | Logs the current timestamp, marks the current obstacle as completed, advances to the next obstacle. When the last obstacle is passed, the run ends automatically. |
-| **Audit Log** | Red (`#D8282B`) | Logs the current timestamp as an audit event on the current obstacle (e.g., a fall, penalty, retry, or any notable moment). Does NOT advance the obstacle. |
+After all obstacles are passed:
 
-### Event Log
+1. The wall **unlocks** — a `WALL_UNLOCKED` event is recorded.
+2. The timer **continues running** through the wall stage.
+3. Three outcome buttons appear: **🔥 MEGA Wall**, **✓ Wall**, **✕ Failed**.
+4. The operator watches the competitor's 3 wall attempts, then records the final outcome.
+5. The elapsed time at button press is the total run time.
 
-- Displayed as a scrolling list at the bottom of the timer screen.
-- Each entry shows: `[elapsed time] [event type] [obstacle name]`
-- Event types: `STARTED`, `PASSED`, `AUDIT`, `COMPLETED`
+| Outcome | Meaning | Run Status |
+|---------|---------|------------|
+| **MEGA Wall** | Conquered the mega wall | Finished (best) |
+| **Wall** | Conquered the regular wall | Finished |
+| **Failed** | Failed all 3 wall attempts | DNF (`wallFailed: true`) — completed course but failed wall |
 
-### Ending a Run
+### Undo System
 
-- The run ends automatically when the contestant passes the last obstacle.
-- A **"Finish Run"** button is also available to manually end a run early (e.g., contestant falls out).
-- After the run ends, the contestant's data is saved to the session.
-- The user returns to the name entry screen to start the next contestant.
+- **"ביטול הקלקה אחרונה"** — undoes the last action (pass, fall, start, or wall unlock).
+- Undoing a fall restarts the timer.
+- Undoing the wall unlock re-locks the wall and resumes normal run state.
+- Undoing the first obstacle start stops the timer entirely.
+
+### Event Types
+
+| Type | Description |
+|------|-------------|
+| `STARTED` | Run created (time: 0) |
+| `OBSTACLE_START` | Operator clicked "זינוק" for an obstacle |
+| `PASSED` | Obstacle completed successfully |
+| `FALL` | Contestant fell on an obstacle (includes `obstacleStartTime`) |
+| `WALL_UNLOCKED` | All obstacles cleared, wall opened |
+| `WALL_RESULT` | Wall outcome recorded (includes `wallResult` field) |
+| `COMPLETED` | Run finished |
 
 ### Data Saved Per Run
 
-```
+```javascript
 {
-  contestantName: "John Smith",
+  contestantName: "יוסי כהן",
   startTime: "2026-07-08T10:30:00.000Z",
   events: [
-    { time: 0,      type: "STARTED",  obstacle: null },
-    { time: 45120,   type: "PASSED",   obstacle: "Obstacle 1" },
-    { time: 82870,   type: "PASSED",   obstacle: "Obstacle 2" },
-    { time: 135440,  type: "AUDIT",    obstacle: "Obstacle 3" },
-    { time: 181330,  type: "PASSED",   obstacle: "Obstacle 3" },
-    { time: 204570,  type: "COMPLETED", obstacle: null }
+    { time: 0,      type: "STARTED",        obstacle: null },
+    { time: 0,      type: "OBSTACLE_START", obstacle: "הגלשנים" },
+    { time: 12340,  type: "PASSED",         obstacle: "הגלשנים", obstacleStartTime: 0 },
+    { time: 12340,  type: "OBSTACLE_START", obstacle: "המטריות" },
+    { time: 24560,  type: "PASSED",         obstacle: "המטריות", obstacleStartTime: 12340 },
+    // ...
+    { time: 38900,  type: "WALL_UNLOCKED",  obstacle: null },
+    { time: 52100,  type: "WALL_RESULT",    obstacle: null, wallResult: "MEGA_WALL" },
+    { time: 52100,  type: "COMPLETED",      obstacle: null }
   ],
-  totalTime: 204570
+  totalTime: 52100,
+  dnf: false,
+  wallResult: "MEGA_WALL",
+  wallAttempts: 3,
+  megaWall: true,          // backward compat
+  heatNumber: 1,
+  startOrder: 3
 }
 ```
 
+### Live Scoreboard
+
+Displayed below the runner section with real-time updates after each run:
+
+```
+דירוג | סדר | מתחרה | [obstacle splits...] | קיר | סה"כ
+```
+
+- Finishers ranked above fallers.
+- Among finishers: sorted by total time (ascending).
+- Among fallers: sorted by obstacles completed (descending), then by start time of fall obstacle (ascending).
+- Top 3 get medal icons (🥇🥈🥉).
+
 ---
 
-## Stage 3: Export
+## Stage 3: Export (ייצוא)
 
 ### Trigger
 
-- After all contestants have completed their runs, the user navigates to the Export screen.
-- Available at any time via a navigation button (does not require all contestants to finish).
+- Export button is always available in the Stage 2 header bar.
+- A dedicated export stage is also accessible via navigation.
+- Does not require all contestants to finish.
 
-### CSV Output
+### Excel Output
 
-The exported CSV file contains one row per event, grouped by contestant:
+The exported file is an **Excel-compatible HTML table** (.xls) with:
 
-```csv
-Contestant,Event #,Event Type,Obstacle,Elapsed Time (s),Timestamp
-John Smith,1,STARTED,,0.000,2026-07-08T10:30:00.000Z
-John Smith,2,PASSED,Obstacle 1,45.120,2026-07-08T10:30:45.120Z
-John Smith,3,PASSED,Obstacle 2,82.870,2026-07-08T10:31:22.870Z
-John Smith,4,AUDIT,Obstacle 3,135.440,2026-07-08T10:32:15.440Z
-John Smith,5,PASSED,Obstacle 3,181.330,2026-07-08T10:33:01.330Z
-John Smith,6,COMPLETED,,204.570,2026-07-08T10:33:24.570Z
-Jane Doe,1,STARTED,,0.000,2026-07-08T10:35:00.000Z
-...
+- RTL Hebrew direction
+- Styled headers (brand blue background, white text)
+- Color-coded cells (falls in red, starts in blue, wall results styled)
+- Alternating row colors
+- Office XML worksheet directives for proper RTL display in Excel
+
+### Export Columns
+
 ```
+תאריך | מקצה | דירוג | סדר | מתחרה | [per obstacle: זינוק, תוצאה] | זמן סה"כ | סיים? | תוצאת קיר
+```
+
+For each obstacle, two columns are generated:
+- **זינוק** (start time) — when the operator started the obstacle
+- **תוצאה** (result) — pass time, or fall time with "(נפילה)" label
 
 ### Export Method
 
-- In-browser CSV generation using JavaScript `Blob` and download link.
-- File is named with the date: `ninja_timer_results_2026-07-08.csv`
+- In-browser HTML generation using JavaScript `Blob` with MIME type `application/vnd.ms-excel`.
+- File named with Hebrew convention: `תוצאות-נינגה-YYYY-MM-DD-מקצה-N.xls`
 - No server required.
+
+---
+
+## Ranking System
+
+### Tier 1: Finishers (completed all obstacles + wall result)
+
+Ranked by **total time** (ascending) — lower time = higher rank.
+
+### Tier 2: Fallers (fell during the run or failed wall)
+
+1. Sorted by **obstacles completed** (descending) — more completed = higher rank.
+2. Tiebreaker: sorted by **start time of the obstacle they fell on** (ascending).
+
+### Wall-Failed Competitors
+
+Competitors who cleared all obstacles but failed the wall are in Tier 2 with `wallFailed: true`. They completed N obstacles (all of them), so they always rank above regular fallers (who completed at most N-1).
 
 ---
 
 ## Design and Theme
 
-### Visual Identity
+### Visual Identity — Ninja Israel 2026
 
-Inspired by **American Ninja Warrior** branding:
-
-| Element | Color | Hex |
-|---------|-------|-----|
-| Background | Dark navy/black | `#0D1117` |
-| Primary accent | Ninja Blue (brand blue) | `#284C88` |
-| Danger / Audit | Ninja Red (brand red) | `#D8282B` |
-| Success / Next | Green | `#28A745` |
-| Text | White | `#FFFFFF` |
-| Timer display | Electric blue glow | `#4DA3FF` |
-| Secondary text | Light gray | `#8B949E` |
+| Element | Color | Token |
+|---------|-------|-------|
+| Page background | Dark night | `--night` (#060810) |
+| Card surfaces | Navy | `--navy` (#0A1430) |
+| Input backgrounds | Deep navy | `--navy-deep` (#070D22) |
+| Primary brand (shield blue) | Blue | `--blue` (#1E52E0) |
+| Competition red (falls, danger) | Red | `--red` (#CC1A22) |
+| Champion gold (finish, success) | Gold | `--gold` (#E8B500) |
+| Display text | Chrome silver | `--chrome` (#C8D4F0) |
+| Body text | Off-white | `--offwhite` (#D8E4F8) |
+| Muted text | Gray | `--gray` (#5870A0) |
 
 ### Typography
 
-- Bold, athletic sans-serif font (e.g., `"Rajdhani"`, `"Oswald"`, or `"Bebas Neue"` from Google Fonts).
-- Timer display: large monospace numerals for readability.
+| Context | Font | Weight |
+|---------|------|--------|
+| Page titles, buttons | Barlow Condensed | 800–900, UPPERCASE |
+| Body text, labels (Hebrew) | Heebo | 400–700 |
+| Timer digits | Courier New | 700, tabular-nums |
 
 ### Layout Principles
 
-- **Touch-first**: large buttons (minimum 80px tall), generous tap targets.
-- **Tablet/phone friendly**: works on devices used on set.
-- **Non-technical**: no menus, no settings, no jargon. A production assistant should be able to use it immediately.
-- **High contrast**: easily readable under bright stage lighting or outdoors.
+- **RTL Hebrew** throughout (`direction: rtl` on html/body).
+- **Touch-first**: large buttons (min 44×44px touch targets), generous spacing.
+- **Tablet/phone friendly**: responsive design for on-set devices.
+- **Non-technical**: no menus, no settings. A production assistant can use it immediately.
+- **High contrast**: readable under bright stage lighting.
 - **No login, no accounts, no setup wizards.**
+- **Gold = success** (not green). Green is never used as a success color.
 
 ---
 
@@ -198,41 +281,73 @@ Inspired by **American Ninja Warrior** branding:
 | Technology | Purpose |
 |------------|---------|
 | HTML5 | Structure |
-| CSS3 | Styling, animations, responsive layout |
-| Vanilla JavaScript | Logic, timer, CSV generation |
+| CSS3 | Styling, animations, responsive layout, CSS custom properties |
+| Vanilla JavaScript (ES modules) | Logic, timer, Excel generation |
 | Vite | Dev server, bundling, hot reload |
-| localStorage | Session persistence (survives page refresh) |
-| Blob API | In-browser CSV file generation and download |
+| localStorage | Session persistence (obstacles, runs, heat data) |
+| sessionStorage | Active session tracking |
+| Blob API | In-browser Excel file generation and download |
 
 ### No external dependencies beyond Vite. No frameworks. Intentionally simple.
 
 ---
 
-## Data Persistence
+## Security
 
-- All session data (obstacle config, contestant runs) stored in `localStorage`.
-- Data survives page refresh but is cleared when the browser storage is cleared.
-- Export to CSV is the permanent storage mechanism.
+- **Content Security Policy** (CSP) enforced via meta tag: scripts and styles from `'self'` only.
+- **Local-only data**: all competition data stays in the browser. Zero outbound requests with app data.
+- **No analytics, telemetry, cloud sync, or external API calls.**
+- Export is a local file download via Blob URL — never uploaded.
 
 ---
 
-## File Structure (planned)
+## Data Persistence
+
+- All session data (obstacle config, contestant runs, heat numbers, players) stored in `localStorage` with `ninja_timer_` prefix.
+- Session tracking via `sessionStorage` to detect fresh page loads.
+- Data survives page refresh but is scoped to the browser.
+- Export to Excel is the permanent storage mechanism.
+- "New competition" flow offers export-before-delete to prevent data loss.
+
+---
+
+## Deployment
+
+- **Platform:** Cloudflare Pages (static Vite build)
+- **URL:** https://ninja-timer.pages.dev/
+- **Deploy command:**
+  ```bash
+  npx vite build
+  npx wrangler pages deploy dist --project-name=ninja-timer --branch=master
+  ```
+
+---
+
+## File Structure
 
 ```
 Ninja_Timer/
-├── index.html
+├── index.html              # Entry point (RTL Hebrew, CSP, no external fonts)
+├── public/
+│   └── ninja-logo.png      # Brand logo (used as favicon + header)
 ├── src/
-│   ├── main.js          # App entry point, routing between stages
-│   ├── stage1-setup.js  # Obstacle selection logic
-│   ├── stage2-timer.js  # Timer, event logging, buttons
-│   ├── stage3-export.js # CSV generation and download
-│   ├── data.js          # localStorage read/write, data models
-│   └── style.css        # All styles, Ninja Warrior theme
+│   ├── main.js             # App entry point, routing between stages
+│   ├── stage1-setup.js     # Obstacle selection, player registration, date/heat
+│   ├── stage2-timer.js     # Timer, obstacle flow, wall stage, scoreboard
+│   ├── stage3-export.js    # Export screen with run preview
+│   ├── data.js             # localStorage CRUD, obstacle pool, ranking, Excel export
+│   └── style.css           # All styles (Ninja Israel 2026 design system tokens)
+├── docs/
+│   ├── ranking-guidelines.md    # Official ranking rules and implementation
+│   └── wall-finish-logic-design.md  # Wall stage design document
 ├── package.json
 ├── vite.config.js
 ├── .gitignore
-├── SPEC.md              # This file
+├── SPEC.md                 # This file
 └── .cursor/
-    └── rules/
-        └── project-config.mdc
+    ├── rules/
+    │   └── project-config.mdc
+    └── skills/
+        └── ninja-design-system/
+            └── SKILL.md
 ```

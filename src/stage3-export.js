@@ -17,8 +17,8 @@ export function renderExport(app, onBack) {
           ${runs.map(run => {
             const passed = run.events.filter(e => e.type === 'PASSED');
             const falls = run.events.filter(e => e.type === 'FALL');
-            const finished = passed.length === obstacles.length;
-            const wallDisplay = finished ? wallResultDisplay(run) : '';
+            const finished = !run.dnf;
+            const wallDisplay = wallResultDisplay(run);
             return `
             <div class="run-card">
               <div class="run-card-header">

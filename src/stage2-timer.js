@@ -240,7 +240,7 @@ export function renderTimer(app, obstacles, onFinish) {
       <div class="card timer-card ${run.wallUnlocked ? 'timer-card-wall-open' : ''}">
         <div class="timer-top">
           <div class="timer-info">
-            <span class="timer-status">${run.wallUnlocked ? '🏆 הקיר פתוח! ⏱' : !run.timerStarted ? '🏁 ממתין לזינוק' : '⏱ בריצה'}</span>
+            <span class="timer-status">${run.wallUnlocked ? '🏆 הקיר פתוח! ⏱' : run.allObstaclesPassed ? '🧱 מוכן לקיר ⏱' : !run.timerStarted ? '🏁 ממתין לזינוק' : '⏱ בריצה'}</span>
             <span class="timer-player">${esc(run.contestantName)}</span>
           </div>
           <div class="timer-display">
@@ -258,69 +258,89 @@ export function renderTimer(app, obstacles, onFinish) {
           </div>
         </div>
 
-        <div class="obstacles-list">
-          ${obstacles.map((name, i) => {
-            const passEvent = run.events.find(e => e.type === 'PASSED' && e.obstacle === name);
-            const fallEvent = run.events.find(e => e.type === 'FALL' && e.obstacle === name);
-            const isCurrent = i === currentIdx && !run.finished;
-            const isPassed = !!passEvent;
-            const isFallen = !!fallEvent;
-            const isLocked = i > currentIdx && !run.finished;
-
-            let statusClass = '';
-            let content = '';
-
-            const startEvent = run.events.find(e => e.type === 'OBSTACLE_START' && e.obstacle === name);
-
-            if (isPassed) {
-              statusClass = 'obstacle-passed';
-              const startLabel = startEvent ? `<span class="split-start">ז׳ ${formatSeconds(startEvent.time)}</span>` : '';
-              content = `<span class="split-badge">✓ ${startLabel}${formatSeconds(passEvent.time)}</span>`;
-            } else if (isFallen) {
-              statusClass = 'obstacle-fallen';
-              const startLabel = startEvent ? `<span class="split-start">ז׳ ${formatSeconds(startEvent.time)}</span>` : '';
-              content = `<span class="fall-badge">✕ נפילה ${startLabel}${formatSeconds(fallEvent.time)}</span>`;
-            } else if (isCurrent) {
-              statusClass = 'obstacle-current';
-              const isLast = i === obstacles.length - 1;
-
-              if (!startEvent) {
-                content = `
-                  <div class="obstacle-actions">
-                    <button class="action-btn btn-start-obstacle" data-index="${i}">
-                      <span>🏁</span> זינוק
-                    </button>
+        <div class="compact-obstacle-display">
+          ${(() => {
+            if (run.allObstaclesPassed || run.wallUnlocked || run.finished) {
+              const lastIdx = obstacles.length - 1;
+              const lastName = obstacles[lastIdx];
+              const lastPass = run.events.find(e => e.type === 'PASSED' && e.obstacle === lastName);
+              const lastStart = run.events.find(e => e.type === 'OBSTACLE_START' && e.obstacle === lastName);
+              return `
+                <div class="obstacle-context obstacle-passed">
+                  <div class="obstacle-badge badge-passed">${lastIdx + 1}</div>
+                  <div class="obstacle-name-wrap">
+                    <span class="obstacle-name">${esc(lastName)}</span>
+                    <span class="obstacle-name-en">${esc(OBSTACLE_EN.get(lastName) || '')}</span>
                   </div>
-                `;
-              } else {
-                content = `
-                  <div class="obstacle-actions">
-                    <span class="start-time-badge">ז׳ ${formatSeconds(startEvent.time)}</span>
-                    <button class="action-btn btn-pass" data-index="${i}">
-                      <span>✓</span> ${isLast ? 'החזיקו לסיום' : 'עבר'}
-                    </button>
-                    <button class="action-btn btn-fall" data-index="${i}">
-                      <span>✕</span> נפילה
-                    </button>
+                  <span class="split-badge">✓ ${lastStart ? `<span class="split-start">ז׳ ${formatSeconds(lastStart.time)}</span>` : ''}${lastPass ? formatSeconds(lastPass.time) : ''}</span>
+                </div>
+              `;
+            }
+
+            const prevIdx = currentIdx - 1;
+            let prevHtml = '';
+            if (prevIdx >= 0) {
+              const prevName = obstacles[prevIdx];
+              const prevPass = run.events.find(e => e.type === 'PASSED' && e.obstacle === prevName);
+              const prevStart = run.events.find(e => e.type === 'OBSTACLE_START' && e.obstacle === prevName);
+              if (prevPass) {
+                prevHtml = `
+                  <div class="obstacle-context obstacle-passed">
+                    <div class="obstacle-badge badge-passed">${prevIdx + 1}</div>
+                    <div class="obstacle-name-wrap">
+                      <span class="obstacle-name">${esc(prevName)}</span>
+                      <span class="obstacle-name-en">${esc(OBSTACLE_EN.get(prevName) || '')}</span>
+                    </div>
+                    <span class="split-badge">✓ ${prevStart ? `<span class="split-start">ז׳ ${formatSeconds(prevStart.time)}</span>` : ''}${formatSeconds(prevPass.time)}</span>
                   </div>
                 `;
               }
-            } else if (isLocked) {
-              statusClass = 'obstacle-locked';
-              content = `<span class="lock-label">🔒 נעול</span>`;
             }
 
-            return `
-              <div class="obstacle-row ${statusClass}">
-                <div class="obstacle-badge ${isPassed ? 'badge-passed' : isCurrent ? 'badge-current' : isFallen ? 'badge-fallen' : 'badge-locked'}">${i + 1}</div>
-                <div class="obstacle-name-wrap">
-                  <span class="obstacle-name">${esc(name)}</span>
-                  <span class="obstacle-name-en">${esc(OBSTACLE_EN.get(name) || '')}</span>
+            const curName = obstacles[currentIdx];
+            const curStart = run.events.find(e => e.type === 'OBSTACLE_START' && e.obstacle === curName);
+            const curFall = run.events.find(e => e.type === 'FALL' && e.obstacle === curName);
+            let curContent = '';
+
+            if (curFall) {
+              curContent = `<span class="fall-badge">✕ נפילה ${curStart ? `<span class="split-start">ז׳ ${formatSeconds(curStart.time)}</span>` : ''}${formatSeconds(curFall.time)}</span>`;
+            } else if (!curStart) {
+              curContent = `
+                <div class="obstacle-actions">
+                  <button class="action-btn btn-start-obstacle" data-index="${currentIdx}">
+                    <span>🏁</span> זינוק
+                  </button>
                 </div>
-                ${content}
+              `;
+            } else {
+              curContent = `
+                <div class="obstacle-actions">
+                  <span class="start-time-badge">ז׳ ${formatSeconds(curStart.time)}</span>
+                  <button class="action-btn btn-pass" data-index="${currentIdx}">
+                    <span>✓</span> עבר
+                  </button>
+                  <button class="action-btn btn-fall" data-index="${currentIdx}">
+                    <span>✕</span> נפילה
+                  </button>
+                </div>
+              `;
+            }
+
+            const remaining = obstacles.length - currentIdx - 1;
+
+            return `
+              ${prevHtml}
+              <div class="obstacle-row obstacle-current">
+                <div class="obstacle-badge badge-current">${currentIdx + 1}</div>
+                <div class="obstacle-name-wrap">
+                  <span class="obstacle-name">${esc(curName)}</span>
+                  <span class="obstacle-name-en">${esc(OBSTACLE_EN.get(curName) || '')}</span>
+                </div>
+                ${curContent}
               </div>
+              ${remaining > 0 ? `<div class="remaining-label">נותרו ${remaining} מכשולים + הקיר</div>` : ''}
             `;
-          }).join('')}
+          })()}
 
           ${run.wallUnlocked ? `
             <div class="obstacle-row obstacle-wall-unlocked">
@@ -332,11 +352,23 @@ export function renderTimer(app, obstacles, onFinish) {
                 <button class="btn-wall-failed">✕ Failed</button>
               </div>
             </div>
+          ` : run.allObstaclesPassed ? `
+            <div class="obstacle-row obstacle-wall-ready">
+              <div class="obstacle-badge badge-wall-ready">🧱</div>
+              <div class="obstacle-name-wrap">
+                <span class="obstacle-name">הקיר</span>
+              </div>
+              <div class="obstacle-actions">
+                <button class="action-btn btn-start-wall">
+                  <span>🏁</span> התחלת קיר
+                </button>
+              </div>
+            </div>
           ` : `
             <div class="obstacle-row obstacle-wall-locked">
               <div class="obstacle-badge badge-wall">🧱</div>
               <span class="obstacle-name">הקיר</span>
-              <span class="lock-label">🔒 נעול — סיימו את כל המכשולים</span>
+              <span class="lock-label">🔒 נעול</span>
             </div>
           `}
         </div>
@@ -414,19 +446,20 @@ export function renderTimer(app, obstacles, onFinish) {
       });
     });
 
-    section.querySelectorAll('.btn-pass').forEach(btn => {
-      const idx = parseInt(btn.dataset.index, 10);
-      const isLast = idx === obstacles.length - 1;
+    const startWallBtn = section.querySelector('.btn-start-wall');
+    if (startWallBtn) {
+      startWallBtn.addEventListener('click', () => {
+        if (!activeRun || activeRun.finished) return;
+        const elapsed = Date.now() - activeRun.startTime;
+        unlockWall(elapsed);
+      });
+    }
 
-      if (isLast) {
-        setupHoldButton(btn, (pressStart) => {
-          handlePass(idx, pressStart);
-        });
-      } else {
-        btn.addEventListener('click', () => {
-          handlePass(idx);
-        });
-      }
+    section.querySelectorAll('.btn-pass').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const idx = parseInt(btn.dataset.index, 10);
+        handlePass(idx);
+      });
     });
 
     section.querySelectorAll('.btn-fall').forEach(btn => {
@@ -511,6 +544,8 @@ export function renderTimer(app, obstacles, onFinish) {
 
   function handleObstacleStart(obstacleIndex) {
     if (!activeRun) return;
+    const obstacleName = obstacles[obstacleIndex];
+    if (activeRun.events.some(e => e.type === 'OBSTACLE_START' && e.obstacle === obstacleName)) return;
 
     if (!activeRun.timerStarted) {
       const now = Date.now();
@@ -526,7 +561,6 @@ export function renderTimer(app, obstacles, onFinish) {
     }
 
     const elapsed = Date.now() - activeRun.startTime;
-    const obstacleName = obstacles[obstacleIndex];
 
     activeRun.events.push({ time: elapsed, type: 'OBSTACLE_START', obstacle: obstacleName });
 
@@ -549,7 +583,9 @@ export function renderTimer(app, obstacles, onFinish) {
     activeRun.currentObstacleIndex++;
 
     if (activeRun.currentObstacleIndex >= obstacles.length) {
-      unlockWall(elapsed);
+      activeRun.allObstaclesPassed = true;
+      activeRun.allObstaclesPassedTime = elapsed;
+      renderRunnerSection();
       return;
     }
 
@@ -687,19 +723,17 @@ export function renderTimer(app, obstacles, onFinish) {
 
     if (lastEvent.type === 'PASSED') {
       activeRun.currentObstacleIndex = Math.max(0, activeRun.currentObstacleIndex - 1);
+      if (activeRun.allObstaclesPassed) {
+        activeRun.allObstaclesPassed = false;
+        activeRun.allObstaclesPassedTime = null;
+      }
     }
 
-    if (activeRun.wallUnlocked) {
-      if (lastEvent.type === 'WALL_UNLOCKED') {
-        const prevEvent = activeRun.events[activeRun.events.length - 1];
-        if (prevEvent && prevEvent.type === 'PASSED') {
-          activeRun.events.pop();
-          activeRun.currentObstacleIndex = Math.max(0, activeRun.currentObstacleIndex - 1);
-        }
-        activeRun.wallUnlocked = false;
-        activeRun.wallUnlockTime = null;
-        activeRun.wallResult = null;
-      }
+    if (lastEvent.type === 'WALL_UNLOCKED') {
+      activeRun.wallUnlocked = false;
+      activeRun.wallUnlockTime = null;
+      activeRun.wallResult = null;
+      activeRun.allObstaclesPassed = true;
     }
 
     if (lastEvent.type === 'FALL') {
@@ -775,10 +809,14 @@ export function renderTimer(app, obstacles, onFinish) {
                 ${sortedRuns.map((run, rankIdx) => {
                   const rank = rankIdx + 1;
                   const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : rank;
-                  const obstacleTimes = {};
+                  const obstacleStartTimes = {};
+                  const fellAt = {};
                   for (const e of run.events) {
-                    if (e.type === 'PASSED' && e.obstacle) {
-                      obstacleTimes[e.obstacle] = e.time;
+                    if (e.type === 'OBSTACLE_START' && e.obstacle) {
+                      obstacleStartTimes[e.obstacle] = e.time;
+                    }
+                    if (e.type === 'FALL' && e.obstacle) {
+                      fellAt[e.obstacle] = true;
                     }
                   }
                   const isDNF = run.dnf;
@@ -790,14 +828,10 @@ export function renderTimer(app, obstacles, onFinish) {
                       <td class="td-order">${startOrder}</td>
                       <td class="td-name">${esc(run.contestantName)}</td>
                       ${obstacles.map(o => {
-                        const t = obstacleTimes[o];
+                        const t = obstacleStartTimes[o];
                         if (t !== undefined) {
-                          return `<td class="td-obstacle">${formatSeconds(t)}</td>`;
-                        }
-                        const fell = run.events.find(e => e.type === 'FALL' && e.obstacle === o);
-                        if (fell) {
-                          const displayTime = fell.obstacleStartTime != null ? fell.obstacleStartTime : fell.time;
-                          return `<td class="td-obstacle td-fall">${formatSeconds(displayTime)}</td>`;
+                          const isFall = fellAt[o];
+                          return `<td class="td-obstacle ${isFall ? 'td-fall' : ''}">${formatSeconds(t)}</td>`;
                         }
                         return `<td class="td-obstacle td-empty">-</td>`;
                       }).join('')}
@@ -806,7 +840,11 @@ export function renderTimer(app, obstacles, onFinish) {
                         if (!wr) return '<td class="td-wall td-empty">-</td>';
                         if (wr === WALL_RESULTS.MEGA_WALL) return '<td class="td-wall td-wall-mega">🔥 MEGA</td>';
                         if (wr === WALL_RESULTS.WALL) return '<td class="td-wall td-wall-pass">✓</td>';
-                        if (wr === WALL_RESULTS.FAILED) return '<td class="td-wall td-wall-fail">✕</td>';
+                        if (wr === WALL_RESULTS.FAILED) {
+                          const wallUnlock = run.events.find(e => e.type === 'WALL_UNLOCKED');
+                          const wallStartTime = wallUnlock ? formatSeconds(wallUnlock.time) : '✕';
+                          return `<td class="td-wall td-wall-fail">${wallStartTime}</td>`;
+                        }
                         return '<td class="td-wall td-empty">-</td>';
                       })()}
                       <td class="td-total ${isDNF ? 'td-dnf' : ''}">${formatSeconds(run.totalTime)}</td>

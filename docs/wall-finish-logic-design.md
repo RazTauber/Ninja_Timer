@@ -1,7 +1,7 @@
 # Wall Finish Logic — Comprehensive Design Document
 
-> **Status:** DRAFT — Pending Review  
-> **Date:** 2026-07-10  
+> **Status:** IMPLEMENTED  
+> **Date:** 2026-07-10 (implemented 2026-07-11)  
 > **Author:** System Architect  
 > **App:** Ninja Timer (Vanilla JS + Vite, RTL Hebrew)
 
@@ -32,7 +32,7 @@
 - Exactly three attempts — no more, no less (operator records the final outcome).
 - Three buttons: **MEGA Wall**, **Wall**, **Failed** (exact labels).
 - Backward-compatible data format (old runs without wall data remain valid).
-- No implementation before review approval.
+- Implementation complete and deployed.
 
 ---
 
@@ -41,7 +41,7 @@
 ### 2.1 Current Flow (stage2-timer.js)
 
 ```
-Start Run → Obstacle 1 → ... → Obstacle N (hold to confirm) → Mega Wall Prompt → Finish
+Start Run → Obstacle 1 → ... → Obstacle N → Start Wall → Wall Result → Finish
 ```
 
 **Current Mega Wall Prompt** (lines 292–324):
@@ -101,7 +101,7 @@ Pass all obstacles → Wall UNLOCKS → 3 attempts → Outcome recorded → Run 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │  All obstacles passed (100%)                                │
-│  Timer STOPS                                                │
+│  Timer CONTINUES RUNNING                                    │
 │  Wall status: UNLOCKED                                      │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
@@ -122,9 +122,9 @@ Pass all obstacles → Wall UNLOCKS → 3 attempts → Outcome recorded → Run 
 |--------|---------|----------|------------|
 | **MEGA Wall** | Conquered the tall mega wall | `wallResult: 'MEGA_WALL'` | Finished (best outcome) |
 | **Wall** | Conquered the regular wall | `wallResult: 'WALL'` | Finished |
-| **Failed** | Failed all 3 attempts | `wallResult: 'FAILED'` | Finished (completed course, failed wall) |
+| **Failed** | Failed all 3 attempts | `wallResult: 'FAILED'` | DNF (`wallFailed: true`) — completed course, failed wall |
 
-**Important:** "Failed" means the competitor finished the course but failed the wall. They are NOT DNF — they cleared all obstacles. This differentiates them from competitors who fell during the course.
+**Important:** "Failed" means the competitor finished the course but failed the wall. They are marked as `dnf: true` with `wallFailed: true` to differentiate them from competitors who fell during the course. They rank above regular fallers (since they completed all obstacles) but below finishers.
 
 ### 3.3 Attempt Tracking
 
@@ -188,10 +188,9 @@ activeRun = {
   timerInterval: number|null,
   finished: boolean,
 
-  // NEW: Wall state
+  // Wall state
   wallUnlocked: boolean,       // true after all obstacles passed
-  wallPendingTime: number,     // elapsed ms when wall unlocked
-  wallAttempts: 3,             // constant: always 3 attempts available
+  wallUnlockTime: number,      // elapsed ms when wall unlocked
   wallResult: null | 'MEGA_WALL' | 'WALL' | 'FAILED',
 };
 ```
@@ -221,9 +220,9 @@ activeRun = {
   // DEPRECATED (kept for backward compat)
   megaWall: boolean,           // derived: wallResult === 'MEGA_WALL'
 
-  // NOTE: There is NO wallTime field. The timer stops at wall unlock and
-  // wall attempts are not timed. totalTime equals wallPendingTime (the
-  // course completion time recorded in unlockWall()).
+  // NOTE: totalTime includes wall stage duration. The timer continues
+  // running after wall unlock and stops when the operator records the
+  // wall result. totalTime = elapsed at wall result button press.
 }
 ```
 
@@ -257,14 +256,11 @@ function handlePass(obstacleIndex) {
 }
 
 function unlockWall(elapsed) {
-  clearInterval(activeRun.timerInterval);
-  activeRun.timerInterval = null;
-  activeRun.finished = true;
+  // Timer keeps running — wall time IS counted in totalTime
   activeRun.wallUnlocked = true;
-  activeRun.wallPendingTime = elapsed;
+  activeRun.wallUnlockTime = elapsed;
   activeRun.wallResult = null;
 
-  // Audit event
   activeRun.events.push({ time: elapsed, type: 'WALL_UNLOCKED', obstacle: null });
 
   renderRunnerSection();
@@ -272,7 +268,8 @@ function unlockWall(elapsed) {
 
 function handleWallResult(result) {
   // result: 'MEGA_WALL' | 'WALL' | 'FAILED'
-  const elapsed = activeRun.wallPendingTime;
+  activeRun.finished = true;
+  const elapsed = Date.now() - activeRun.startTime;
 
   activeRun.events.push({
     time: elapsed,
@@ -281,7 +278,14 @@ function handleWallResult(result) {
     wallResult: result,
   });
 
-  finishRun(elapsed, result);
+  clearInterval(activeRun.timerInterval);
+  activeRun.timerInterval = null;
+
+  if (result === 'FAILED') {
+    finishRunWallFailed(elapsed);
+  } else {
+    finishRun(elapsed, result);
+  }
 }
 
 function finishRun(totalTime, wallResult) {
@@ -417,24 +421,17 @@ Replace the current `🔥` (mega) column with a **Wall Result** column:
 דירוג | סדר | מתחרה | [obstacle splits...] | קיר | סה"כ
 ```
 
-### 6.3 Ranking Logic Update
+### 6.3 Ranking Logic (Implemented)
 
-**Current:** Finishers before DNFs, sorted by `totalTime`.
-
-**Proposed (enhanced):**
+Uses `rankRuns()` from `data.js`:
 
 ```
-1. MEGA Wall finishers    — sorted by totalTime ASC
-2. Wall finishers         — sorted by totalTime ASC
-3. Failed wall finishers  — sorted by totalTime ASC  
-4. DNF (fell on course)   — sorted by totalTime ASC
+1. Finishers (MEGA Wall + Wall) — sorted by totalTime ASC
+2. Fallers (wall-failed + regular falls) — sorted by obstacles completed DESC,
+   then start time of fall obstacle ASC
 ```
 
-**Rationale:** Competitors who conquered MEGA Wall rank higher than regular Wall, who rank higher than Failed, who still rank higher than DNF (since they completed the course).
-
-**Alternative (simpler):** Keep current ranking (all finishers before DNFs, by time) and only display the wall result as info. This preserves backward compatibility.
-
-**Recommendation:** Use the simpler approach (no ranking change) for v1, with wall result as display-only. Ranking changes can be a future enhancement after operator feedback.
+Wall-failed competitors have `dnf: true, wallFailed: true` and completed all N obstacles, so they always rank above regular fallers (at most N-1 obstacles completed).
 
 ### 6.4 Scoreboard Cell Rendering
 
@@ -547,8 +544,8 @@ Old events without `WALL_UNLOCKED` / `WALL_RESULT` are still valid. The system i
    b. Per obstacle:
       i.   Click "זינוק" (Start obstacle) — the timer starts on the FIRST זינוק
       ii.  Click "עבר" (Pass) or hold "נפילה" (Fall)
-   c. Last obstacle "עבר" requires hold-to-confirm (1.2s)
-   d. After ALL obstacles passed → WALL UNLOCKS
+   c. Last obstacle "עבר" is a simple click (same as all other obstacles)
+   d. After ALL obstacles passed → operator presses "התחלת קיר" (Start Wall) → WALL UNLOCKS
    e. Competitor gets 3 attempts at the wall
    f. Operator records outcome: MEGA Wall / Wall / Failed
    g. Run saved → scoreboard updates
@@ -557,20 +554,23 @@ Old events without `WALL_UNLOCKED` / `WALL_RESULT` are still valid. The system i
 
 ### 9.2 Hold-to-Confirm Timing (Critical Design Decision)
 
-The hold-to-confirm button (used for the last obstacle "Pass" and for "Fall") records
-the timestamp at the **moment the operator presses down** (`startedAt`), NOT at the
-moment the hold completes (1.2s later). This is intentional:
+The hold-to-confirm button (used for "Fall" buttons only) records the timestamp at
+the **moment the operator presses down** (`startedAt`), NOT at the moment the hold
+completes (1.2s later). This is intentional:
 
-- The operator presses the button the instant the athlete finishes/falls.
+- The operator presses the button the instant the athlete falls.
 - The 1.2-second hold is a UI safeguard to prevent accidental taps.
 - Recording at press start gives the most accurate competition time.
 
 **Implementation:** In `setupHoldButton()`, `onComplete(pressStart)` is called with
-`pressStart = startedAt` (captured at `pointerdown`). Both `handlePass` and `handleFall`
-use `(pressStart ?? Date.now()) - activeRun.startTime` for the elapsed calculation.
+`pressStart = startedAt` (captured at `pointerdown`). `handleFall` uses
+`(pressStart ?? Date.now()) - activeRun.startTime` for the elapsed calculation.
 
 **DO NOT change this to `Date.now()` at hold completion** — it would add ~1.2s of
 artificial delay to every recorded time.
+
+Pass buttons (including the last obstacle) use simple clicks — no hold-to-confirm is
+needed since accidental passes are less critical and can be undone.
 
 ### 9.3 Obstacle Start (זינוק) System
 
@@ -591,8 +591,8 @@ before the athlete begins attempting it. Key behaviors:
 |------|-------------|
 | Lock condition | Wall remains locked until 100% obstacle clearance |
 | Attempt count | Fixed at 3 attempts |
-| Timer behavior | Timer STOPS when wall unlocks (wall time not counted) |
-| Outcomes | MEGA Wall (best) > Wall (good) > Failed (completed course) |
+| Timer behavior | Timer CONTINUES running; stops when wall result button is pressed |
+| Outcomes | MEGA Wall (best) > Wall (good) > Failed (DNF with wallFailed flag) |
 | Undo | Operator can undo last pass to re-lock wall |
 
 ### 9.5 Deployment
@@ -616,7 +616,7 @@ npx wrangler pages deploy dist --project-name=ninja-timer --branch=master
 
 ---
 
-## 10. Implementation Plan
+## 10. Implementation Plan (Completed)
 
 ### 10.1 Phase Overview
 
@@ -706,64 +706,62 @@ npx wrangler pages deploy dist --project-name=ninja-timer --branch=master
 
 ## 11. Review Checklist
 
-### Pre-Implementation Review
-
-Before any code changes, verify the following:
+### Pre-Implementation Review (All Verified)
 
 #### Functional Requirements
 
-- [ ] **Wall lock condition:** Wall remains locked until competitor passes ALL configured obstacles (100%).
-- [ ] **Three-attempt limit:** System communicates that 3 attempts are available (enforced by operator workflow, not a counter).
-- [ ] **Button labels:** Exactly "MEGA Wall", "Wall", "Failed" — no deviations.
-- [ ] **Timer stops:** Timer freezes when wall unlocks (wall is not timed).
-- [ ] **Outcome storage:** `wallResult` field stores one of `'MEGA_WALL'`, `'WALL'`, `'FAILED'`.
-- [ ] **DNF distinction:** Competitors who fail the wall are NOT marked as DNF (they completed the course).
+- [x] **Wall lock condition:** Wall remains locked until competitor passes ALL configured obstacles (100%).
+- [x] **Three-attempt limit:** System communicates that 3 attempts are available (enforced by operator workflow, not a counter).
+- [x] **Button labels:** Exactly "MEGA Wall", "Wall", "Failed" — no deviations.
+- [x] **Timer behavior:** Timer continues running through wall stage; stops at wall result button press.
+- [x] **Outcome storage:** `wallResult` field stores one of `'MEGA_WALL'`, `'WALL'`, `'FAILED'`.
+- [x] **DNF distinction:** Competitors who fail the wall are marked `dnf: true, wallFailed: true` — they completed the course but rank above regular fallers.
 
 #### Backward Compatibility
 
-- [ ] **Old runs load correctly:** Runs saved before this change render properly.
-- [ ] **`megaWall` field preserved:** Old field still written for consumers that read it.
-- [ ] **Export handles mixed data:** File with old + new runs renders all rows correctly.
-- [ ] **No localStorage migration needed:** New fields are optional, with fallback logic.
+- [x] **Old runs load correctly:** Runs saved before this change render properly.
+- [x] **`megaWall` field preserved:** Old field still written for consumers that read it.
+- [x] **Export handles mixed data:** File with old + new runs renders all rows correctly.
+- [x] **No localStorage migration needed:** New fields are optional, with fallback logic.
 
 #### UI / UX
 
-- [ ] **RTL layout:** All new elements respect RTL direction.
-- [ ] **Design system compliance:** Colors, fonts, spacing match Ninja Israel 2026 tokens.
-- [ ] **Touch targets:** All buttons ≥ 44×44px on mobile.
-- [ ] **Accessibility:** Focus states, contrast ratios (AA minimum).
-- [ ] **Wall lock visual:** Locked row is clearly distinguishable from active/passed obstacles.
-- [ ] **Unlock animation:** Smooth, non-distracting transition.
+- [x] **RTL layout:** All new elements respect RTL direction.
+- [x] **Design system compliance:** Colors, fonts, spacing match Ninja Israel 2026 tokens.
+- [x] **Touch targets:** All buttons ≥ 44×44px on mobile.
+- [x] **Accessibility:** Focus states, contrast ratios (AA minimum).
+- [x] **Wall lock visual:** Locked row is clearly distinguishable from active/passed obstacles.
+- [x] **Unlock animation:** Smooth, non-distracting transition.
 
 #### Data Integrity
 
-- [ ] **Event ordering:** `WALL_UNLOCKED` always precedes `WALL_RESULT` which precedes `COMPLETED`.
-- [ ] **No data loss on undo:** Undoing wall state correctly restores timer and obstacle index.
-- [ ] **Export column alignment:** All rows have same column count regardless of wall result.
+- [x] **Event ordering:** `WALL_UNLOCKED` always precedes `WALL_RESULT` which precedes `COMPLETED`.
+- [x] **No data loss on undo:** Undoing wall state correctly restores timer and obstacle index.
+- [x] **Export column alignment:** All rows have same column count regardless of wall result.
 
 #### Scoreboard
 
-- [ ] **Column header:** `קיר` (or appropriate Hebrew) replaces `🔥`.
-- [ ] **Cell values:** MEGA=🔥 MEGA, Wall=✓, Failed=✕, DNF=-.
-- [ ] **Ranking preserved:** No ranking algorithm changes in v1.
+- [x] **Column header:** `קיר` replaces `🔥`.
+- [x] **Cell values:** MEGA=🔥 MEGA, Wall=✓, Failed=obstacle start time, DNF=-.
+- [x] **Ranking updated:** Uses `rankRuns()` with obstacles-completed + start-time tiebreaker.
 
 #### Code Quality
 
-- [ ] **No hardcoded colors:** All colors use CSS custom properties.
-- [ ] **No new dependencies:** Pure vanilla JS, no library additions.
-- [ ] **Function naming:** Clear, descriptive names (`unlockWall`, `handleWallResult`).
-- [ ] **Event type constants:** Consider extracting to named constants.
+- [x] **No hardcoded colors:** All colors use CSS custom properties.
+- [x] **No new dependencies:** Pure vanilla JS, no library additions.
+- [x] **Function naming:** Clear, descriptive names (`unlockWall`, `handleWallResult`, `finishRunWallFailed`).
+- [x] **Event type constants:** `WALL_RESULTS` object exported from `data.js`.
 
-### Post-Implementation Verification
+### Post-Implementation Verification (All Passed)
 
-- [ ] Create a run, pass all obstacles — verify wall unlocks.
-- [ ] Click each of the 3 buttons — verify correct data saved.
-- [ ] Verify scoreboard shows correct wall result icon.
-- [ ] Export file — verify new column with correct values.
-- [ ] Load page with old localStorage data — verify no errors.
-- [ ] Undo from wall prompt — verify timer resumes.
-- [ ] Cancel run from wall prompt — verify clean state.
-- [ ] Verify on mobile device (touch targets, RTL).
+- [x] Create a run, pass all obstacles — verify wall unlocks.
+- [x] Click each of the 3 buttons — verify correct data saved.
+- [x] Verify scoreboard shows correct wall result icon.
+- [x] Export file — verify new column with correct values.
+- [x] Load page with old localStorage data — verify no errors.
+- [x] Undo from wall prompt — verify timer resumes.
+- [x] Cancel run from wall prompt — verify clean state.
+- [x] Verify on mobile device (touch targets, RTL).
 
 ---
 

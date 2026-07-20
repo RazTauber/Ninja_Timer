@@ -1641,9 +1641,10 @@ html, body {
 
 /* ── Scoreboard Table ────────────────────────────────── */
 .scoreboard-table-wrap {
-  overflow-x: visible;
+  overflow-x: auto;
   margin: 0 -12px;
   padding: 0 12px;
+  max-width: 100%;
 }
 
 .scoreboard-table {
@@ -1722,6 +1723,11 @@ html, body {
   color: var(--gold-text);
   font-size: 0.75rem;
   letter-spacing: 0.08em;
+  position: sticky;
+  right: 0;
+  z-index: 2;
+  background: var(--navy-deep);
+  box-shadow: -4px 0 8px rgba(0, 0, 0, 0.35);
 }
 
 .td-rank {
@@ -1729,7 +1735,25 @@ html, body {
   font-size: 1.3rem;
   font-weight: 800;
   white-space: nowrap;
+  position: sticky;
+  right: 0;
+  z-index: 1;
+  background: var(--navy);
+  box-shadow: -4px 0 8px rgba(0, 0, 0, 0.25);
 }
+
+/* Podium sticky-cell backgrounds — opaque equivalents of the row
+   tints (rgba) blended onto --navy (#0A1430).  Ranks beyond 3 fall
+   through to the default opaque .td-rank navy, so K>3 just works. */
+.row-rank-1 .td-rank            { background: #25272a; }
+.row-rank-1:hover .td-rank      { background: #323127; }
+.row-rank-2 .td-rank            { background: #1d2743; }
+.row-rank-2:hover .td-rank      { background: #28334f; }
+.row-rank-3 .td-rank            { background: #1e1f30; }
+.row-rank-3:hover .td-rank      { background: #292530; }
+.row-dnf    .td-rank            { background: var(--navy); }
+.scoreboard-table tbody tr:hover .td-rank { background: #0b1839; }
+/* Podium hover overrides above are more specific, so they win. */
 
 .th-order {
   width: 2.5rem;
@@ -1754,6 +1778,7 @@ html, body {
   font-size: 1.05rem;
 }
 
+
 /* Gold for finisher totals, centered for consistent number layout */
 .td-total {
   font-weight: 800;
@@ -1768,6 +1793,12 @@ html, body {
 .td-fall {
   color: var(--red-vivid);
   font-size: 0.85rem;
+  background: var(--red-soft);
+  font-weight: 700;
+}
+
+.row-dnf .td-fall {
+  opacity: 1;
 }
 
 .td-empty { color: var(--gray); }
@@ -1794,9 +1825,12 @@ html, body {
 
 .td-wall-fail {
   color: var(--red-vivid);
+  background: var(--red-soft);
+  font-weight: 700;
 }
 
 .row-dnf td { opacity: 0.65; }
+.row-dnf .td-wall-fail { opacity: 1; }
 
 /* ── Podium Rows — top 3 rank highlights ────────────── */
 .row-rank-1 {
@@ -2077,6 +2111,68 @@ html, body {
   background: transparent;
   border: 1px solid var(--border);
   color: var(--gray);
+}
+
+/* ── Compact Obstacle Display (single-obstacle view) ── */
+.compact-obstacle-display {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 0;
+}
+
+.obstacle-context {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 14px;
+  border: 1px solid rgba(232, 181, 0, 0.25);
+  border-radius: 10px;
+  background: rgba(232, 181, 0, 0.06);
+  opacity: 0.7;
+  font-size: 0.85rem;
+}
+
+.obstacle-context .obstacle-badge { width: 24px; height: 24px; font-size: 0.75rem; }
+
+.obstacle-context .split-badge { font-size: 0.75rem; padding: 3px 8px; }
+
+.remaining-label {
+  text-align: center;
+  color: var(--gray);
+  font-size: 0.78rem;
+  padding: 4px 0;
+  letter-spacing: 0.3px;
+}
+
+/* Start Wall: ready state (between obstacles-done and wall-unlocked) */
+.obstacle-wall-ready {
+  border-color: var(--blue-light);
+  background: var(--blue-glow);
+  box-shadow: 0 0 16px rgba(61, 127, 255, 0.15);
+  animation: wallUnlock 0.6s ease-out;
+  flex-wrap: wrap;
+}
+
+.badge-wall-ready {
+  background: var(--blue-light);
+  color: var(--white);
+  font-size: 1rem;
+  box-shadow: 0 0 10px rgba(61, 127, 255, 0.5);
+}
+
+.btn-start-wall {
+  background: var(--blue);
+  color: var(--white);
+  box-shadow: 0 4px 14px var(--blue-glow);
+  min-width: 140px;
+  justify-content: center;
+  font-size: 1rem;
+}
+
+.btn-start-wall:hover {
+  background: var(--blue-light);
+  box-shadow: 0 6px 20px rgba(61, 127, 255, 0.4);
 }
 
 /* ── Wall Row in Obstacle List ─────────────────────── */

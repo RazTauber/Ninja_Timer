@@ -2,7 +2,7 @@
 
 ## Repository Identity
 
-- **Project**: Ninja Timer (Ninja Warrior obstacle course competition timer)
+- **Project**: Ninja Timer (Ninja Israel obstacle course competition timer)
 - **GitHub Repo**: `RazTauber/Ninja_Timer`
 - **GitHub Account**: `RazTauber`
 - **Git Identity**: Raz Tauber <razt@ctera.com>
@@ -34,14 +34,27 @@ git remote add origin https://<PAT>@github.com/RazTauber/Ninja_Timer.git
 
 ## Tech Stack
 
-- Vanilla HTML + CSS + JavaScript
+- Vanilla HTML + CSS + JavaScript (ES modules)
 - Vite for dev server and bundling
-- No framework -- intentionally simple
-- CSV export via in-browser Blob/download
-- localStorage for session persistence
+- No framework — intentionally simple
+- Excel export (.xls) via in-browser Blob/download (HTML table with Office XML directives)
+- localStorage for session persistence (prefixed `ninja_timer_`)
+- RTL Hebrew UI throughout
+
+## Deployment
+
+- **Platform:** Cloudflare Pages (static Vite build)
+- **Production URL:** https://ninja-timer.pages.dev/
+- **Deploy command:**
+  ```bash
+  npx vite build
+  npx wrangler pages deploy dist --project-name=ninja-timer --branch=master
+  ```
 
 ## Important Notes
 
 - When pushing or pulling, use the remote URL with the embedded PAT from the parent Noams_App repo.
 - Never commit `.env` files or expose the PAT in committed files.
 - The `.gitignore` is configured to exclude `node_modules/`, `dist/`, and `.env`.
+- All competition data is CONFIDENTIAL — local-only storage, zero network transmission.
+- CSP meta tag enforces no external script/connect sources.
