@@ -303,7 +303,7 @@ function rankRuns(runs) {
 function downloadRunsCSV(runs, obstacles) {
   const currentHeat = loadHeatNumber();
   const obstacleHeaders = obstacles.flatMap(o => [`${obstacleLabel(o)} — זינוק`, `${obstacleLabel(o)} — תוצאה`]);
-  const headers = ['תאריך', 'מקצה', 'דירוג', 'סדר', 'מתחרה', ...obstacleHeaders, 'זמן סה"כ', 'סיים?', 'תוצאת קיר'];
+  const headers = ['תאריך', 'מקצה', 'דירוג', 'סדר', 'מתחרה', ...obstacleHeaders, 'זמן סה"כ', 'סיים?', 'התחלת קיר', 'תוצאת קיר'];
 
   const sortedForRank = rankRuns(runs);
   const rankMap = new Map(sortedForRank.map((r, i) => [r, i + 1]));
@@ -350,6 +350,10 @@ function downloadRunsCSV(runs, obstacles) {
       }),
       formatSeconds(run.totalTime),
       finished ? 'כן' : 'לא',
+      (() => {
+        const wallEvt = run.events.find(e => e.type === 'WALL_UNLOCKED');
+        return wallEvt ? formatSeconds(wallEvt.time) : '-';
+      })(),
       wallResultDisplay(run),
     ];
   });
@@ -483,7 +487,8 @@ function downloadRunsCSV(runs, obstacles) {
     return base;
   };
 
-  const finishedColIdx = totalCols - 2;
+  const finishedColIdx = totalCols - 3;
+  const wallStartColIdx = totalCols - 2;
   const wallColIdx = totalCols - 1;
 
   for (let c = 0; c < totalCols; c++) {

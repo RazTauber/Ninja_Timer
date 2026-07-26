@@ -20,11 +20,21 @@ function computeLiveRank(activeRun, obstacles) {
   );
   const isFinisher = wallCompleted;
 
+  const wallUnlockEvent = activeRun.events.find(e => e.type === 'WALL_UNLOCKED');
+  const lastPassEvent = [...activeRun.events].reverse().find(e => e.type === 'PASSED');
+
+  let hypotheticalTime = elapsed;
+  if (!isFinisher && wallUnlockEvent) {
+    hypotheticalTime = wallUnlockEvent.time;
+  } else if (!isFinisher && activeRun.allObstaclesPassed && lastPassEvent) {
+    hypotheticalTime = lastPassEvent.time;
+  }
+
   const hypothetical = {
     dnf: !isFinisher,
-    totalTime: elapsed,
+    totalTime: hypotheticalTime,
     events: activeRun.events,
-    wallFailed: false,
+    wallFailed: !isFinisher && !!wallUnlockEvent,
   };
 
   const allRuns = [...runs, hypothetical];
@@ -484,7 +494,6 @@ export function renderTimer(app, obstacles, onFinish) {
 
     clearInterval(activeRun.timerInterval);
     activeRun.timerInterval = null;
-    activeRun.finished = true;
 
     if (result === WALL_RESULTS.FAILED) {
       finishRunWallFailed(elapsed);
@@ -882,7 +891,7 @@ export function renderTimer(app, obstacles, onFinish) {
                 <tr>
                   <th class="th-rank">דירוג</th>
                   <th class="th-order">סדר</th>
-                  <th>מתחרה</th>
+                  <th class="th-name">מתחרה</th>
                   ${obstacles.map((o, i) => `<th class="th-obstacle"><span class="th-num">${i + 1}</span><span class="th-he">${o}</span><span class="th-en">${OBSTACLE_EN.get(o) || ''}</span></th>`).join('')}
                   <th class="th-mega" title="תוצאת קיר">קיר</th>
                   <th>סה"כ</th>

@@ -1140,7 +1140,7 @@ html, body {
 }
 
 .comp-main {
-  max-width: 1100px;
+  max-width: 1600px;
   width: 100%;
   margin: 0 auto;
   padding: 24px 20px;
@@ -1739,8 +1739,8 @@ html, body {
 .scoreboard-table .td-rank {
   position: sticky;
   right: 0;
-  box-shadow: -4px 0 12px rgba(0, 0, 0, 0.4);
-  border-left: 2px solid var(--border-mid);
+  z-index: 2;
+  background: var(--navy-deep);
 }
 
 .scoreboard-table .th-rank {
@@ -1749,7 +1749,7 @@ html, body {
   color: var(--gold-text);
   font-size: 0.75rem;
   letter-spacing: 0.08em;
-  z-index: 2;
+  z-index: 3;
   background: var(--navy-deep);
 }
 
@@ -1758,21 +1758,73 @@ html, body {
   font-size: 1.3rem;
   font-weight: 800;
   white-space: nowrap;
-  z-index: 1;
+  z-index: 2;
+  background: var(--navy);
+}
+
+.scoreboard-table .th-order,
+.scoreboard-table .td-order {
+  position: sticky;
+  right: 3.5rem;
+  z-index: 2;
+  background: var(--navy-deep);
+}
+
+.scoreboard-table .th-order {
+  z-index: 3;
+}
+
+.scoreboard-table .td-order {
+  background: var(--navy);
+}
+
+.scoreboard-table .th-name,
+.scoreboard-table .td-name {
+  position: sticky;
+  right: 6rem;
+  z-index: 2;
+  background: var(--navy-deep);
+  box-shadow: -4px 0 12px rgba(0, 0, 0, 0.4);
+  border-left: 2px solid var(--border-mid);
+}
+
+.scoreboard-table .th-name {
+  z-index: 3;
+  background: var(--navy-deep);
+}
+
+.scoreboard-table .td-name {
+  z-index: 2;
   background: var(--navy);
 }
 
 /* Podium sticky-cell backgrounds — opaque equivalents of the row
    tints (rgba) blended onto --navy (#0A1430).  Ranks beyond 3 fall
-   through to the default opaque .td-rank navy, so K>3 just works. */
-.row-rank-1 .td-rank            { background: #25272a; }
-.row-rank-1:hover .td-rank      { background: #323127; }
-.row-rank-2 .td-rank            { background: #1d2743; }
-.row-rank-2:hover .td-rank      { background: #28334f; }
-.row-rank-3 .td-rank            { background: #1e1f30; }
-.row-rank-3:hover .td-rank      { background: #292530; }
-.row-dnf    .td-rank            { background: var(--navy); }
-.scoreboard-table tbody tr:hover .td-rank { background: #0b1839; }
+   through to the default opaque navy, so K>3 just works. */
+.row-rank-1 .td-rank,
+.row-rank-1 .td-order,
+.row-rank-1 .td-name            { background: #25272a; }
+.row-rank-1:hover .td-rank,
+.row-rank-1:hover .td-order,
+.row-rank-1:hover .td-name      { background: #323127; }
+.row-rank-2 .td-rank,
+.row-rank-2 .td-order,
+.row-rank-2 .td-name            { background: #1d2743; }
+.row-rank-2:hover .td-rank,
+.row-rank-2:hover .td-order,
+.row-rank-2:hover .td-name      { background: #28334f; }
+.row-rank-3 .td-rank,
+.row-rank-3 .td-order,
+.row-rank-3 .td-name            { background: #1e1f30; }
+.row-rank-3:hover .td-rank,
+.row-rank-3:hover .td-order,
+.row-rank-3:hover .td-name      { background: #292530; }
+.row-dnf .td-rank,
+.row-dnf .td-order,
+.row-dnf .td-name               { background: var(--navy); }
+.scoreboard-table tbody tr:hover .td-rank,
+.scoreboard-table tbody tr:hover .td-order,
+.scoreboard-table tbody tr:hover .td-name { background: #0b1839; }
 /* Podium hover overrides above are more specific, so they win. */
 
 .th-order {
@@ -2347,7 +2399,7 @@ html, body {
 }
 
 .live-rank-badge .rank-context {
-  font-family: var(--font-body);
+  font-family: var(--font-main);
   font-size: 0.8rem;
   color: var(--gray);
   white-space: nowrap;
