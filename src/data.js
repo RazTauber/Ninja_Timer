@@ -21,6 +21,7 @@ const STORAGE_KEYS = {
   HEAT_CACHE: 'ninja_timer_heat_cache',
   SESSION: 'ninja_timer_session',
   PLAYERS: 'ninja_timer_players',
+  COUNTDOWN_MINUTES: 'ninja_timer_countdown_minutes',
 };
 
 const ALL_OBSTACLES = [
@@ -213,6 +214,21 @@ function clearRuns() {
   localStorage.removeItem(STORAGE_KEYS.RUNS);
 }
 
+function loadCountdownMinutes() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.COUNTDOWN_MINUTES);
+    const val = raw ? parseInt(raw, 10) : 2;
+    return (val > 0 && val <= 99) ? val : 2;
+  } catch {
+    return 2;
+  }
+}
+
+function saveCountdownMinutes(minutes) {
+  const val = Math.max(1, Math.min(99, parseInt(minutes, 10) || 2));
+  localStorage.setItem(STORAGE_KEYS.COUNTDOWN_MINUTES, String(val));
+}
+
 function formatTime(ms) {
   const totalSeconds = Math.floor(ms / 1000);
   const minutes = Math.floor(totalSeconds / 60);
@@ -255,6 +271,7 @@ function esc(v) {
 const WALL_RESULTS = { MEGA_WALL: 'MEGA_WALL', WALL: 'WALL', FAILED: 'FAILED' };
 
 function normalizeWallResult(run) {
+  if (run.noWall) return null;
   if (run.wallResult) return run.wallResult;
   if (run.wallFailed) return WALL_RESULTS.FAILED;
   if (run.dnf) return null;
@@ -262,6 +279,7 @@ function normalizeWallResult(run) {
 }
 
 function wallResultDisplay(run) {
+  if (run.noWall) return '-';
   const wr = normalizeWallResult(run);
   if (!wr) return '-';
   if (wr === WALL_RESULTS.MEGA_WALL) return 'MEGA Wall 🔥';
@@ -596,5 +614,7 @@ export {
   normalizeWallResult,
   wallResultDisplay,
   downloadRunsCSV,
+  loadCountdownMinutes,
+  saveCountdownMinutes,
   esc,
 };

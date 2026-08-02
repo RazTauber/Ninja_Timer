@@ -1,10 +1,12 @@
-import { ALL_OBSTACLES, OBSTACLE_EN, MAX_OBSTACLES, MIN_OBSTACLES, loadObstacles, saveObstacles, loadCompDate, saveCompDate, getTodayISO, loadHeatNumber, saveHeatNumber, getNextHeatNumber, registerHeat, loadPlayers, savePlayers, clearLastHeatData, hasLastHeatData, markSessionActive, esc } from './data.js';
+import { ALL_OBSTACLES, OBSTACLE_EN, MAX_OBSTACLES, MIN_OBSTACLES, loadObstacles, saveObstacles, loadCompDate, saveCompDate, getTodayISO, loadHeatNumber, saveHeatNumber, getNextHeatNumber, registerHeat, loadPlayers, savePlayers, clearLastHeatData, hasLastHeatData, markSessionActive, loadCountdownMinutes, saveCountdownMinutes, esc } from './data.js';
+import { APP_MODE } from './mode.js';
 
 export function renderSetup(app, onConfirm, onContinue) {
   let selectedList = [];
   let playerList = loadPlayers();
   let compDate = loadCompDate() || getTodayISO();
   let heatNumber = getNextHeatNumber(compDate);
+  let countdownMinutes = APP_MODE.useCountdownTimer ? loadCountdownMinutes() : null;
   let poolFilter = '';
 
   function render() {
@@ -39,6 +41,15 @@ export function renderSetup(app, onConfirm, onContinue) {
                 </label>
                 <input type="number" class="heat-input" min="1" value="${heatNumber}" />
               </div>
+              ${APP_MODE.useCountdownTimer ? `
+              <div class="duration-field">
+                <label class="field-label">
+                  <span class="field-icon">⏱</span>
+                  זמן ריצה (דק׳)
+                </label>
+                <input type="number" class="duration-input" min="1" max="99" value="${countdownMinutes}" />
+              </div>
+              ` : ''}
             </div>
           </div>
 
@@ -165,6 +176,19 @@ export function renderSetup(app, onConfirm, onContinue) {
         if (val >= 1) {
           heatNumber = val;
           saveHeatNumber(heatNumber);
+        }
+      });
+    }
+
+    const durationInput = app.querySelector('.duration-input');
+    if (durationInput) {
+      durationInput.addEventListener('change', (e) => {
+        const val = parseInt(e.target.value, 10);
+        if (val >= 1 && val <= 99) {
+          countdownMinutes = val;
+          saveCountdownMinutes(val);
+        } else {
+          e.target.value = countdownMinutes;
         }
       });
     }

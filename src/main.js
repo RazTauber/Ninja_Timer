@@ -3,6 +3,18 @@ import { renderSetup } from './stage1-setup.js';
 import { renderTimer } from './stage2-timer.js';
 import { renderExport } from './stage3-export.js';
 import { loadObstacles, markSessionActive } from './data.js';
+import { APP_MODE } from './mode.js';
+
+/** Inject finals mode badge if in finals build. */
+function injectFinalsBadge() {
+  if (!APP_MODE.showFinalsBadge) return;
+  if (document.getElementById('finals-mode-badge')) return;
+  const badge = document.createElement('div');
+  badge.id = 'finals-mode-badge';
+  badge.className = 'finals-mode-badge';
+  badge.textContent = 'FINALS';
+  document.body.appendChild(badge);
+}
 
 /** Resize the transparent logo to a clean 64×64 favicon. */
 function applyLogoFavicon() {
@@ -23,6 +35,7 @@ function applyLogoFavicon() {
 }
 
 applyLogoFavicon();
+injectFinalsBadge();
 
 const app = document.getElementById('app');
 

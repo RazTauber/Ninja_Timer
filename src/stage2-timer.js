@@ -1,4 +1,5 @@
-import { saveRun, loadRuns, clearLastHeatData, formatTime, formatSeconds, formatHebrewDate, loadCompDate, downloadRunsCSV, WALL_RESULTS, normalizeWallResult, OBSTACLE_EN, loadHeatNumber, loadPlayers, rankRuns, getObstaclesCompleted, getRankTime, esc } from './data.js';
+import { saveRun, loadRuns, clearLastHeatData, formatTime, formatSeconds, formatHebrewDate, loadCompDate, downloadRunsCSV, WALL_RESULTS, normalizeWallResult, OBSTACLE_EN, loadHeatNumber, loadPlayers, rankRuns, getObstaclesCompleted, getRankTime, loadCountdownMinutes, esc } from './data.js';
+import { APP_MODE } from './mode.js';
 
 const HOLD_DURATION = 1200;
 const RANK_UPDATE_INTERVAL = 500;
@@ -15,10 +16,11 @@ function computeLiveRank(activeRun, obstacles) {
   // Wall is treated as an obstacle — runner is NOT a finisher until wall result
   // is recorded (MEGA_WALL or WALL). During the wall stage they rank as a DNF
   // with all regular obstacles completed, using elapsed time.
+  // In finals mode (no wall), passing all obstacles = finisher.
   const wallCompleted = activeRun.events.some(
     e => e.type === 'WALL_RESULT' && e.wallResult !== WALL_RESULTS.FAILED
   );
-  const isFinisher = wallCompleted;
+  const isFinisher = APP_MODE.hasWallStage ? wallCompleted : activeRun.allObstaclesPassed;
 
   const wallUnlockEvent = activeRun.events.find(e => e.type === 'WALL_UNLOCKED');
   const lastPassEvent = [...activeRun.events].reverse().find(e => e.type === 'PASSED');
@@ -57,6 +59,71 @@ export function renderTimer(app, obstacles, onFinish) {
   let activeRun = null;
   let rankInterval = null;
   let lastRank = null;
+  const countdownLimitMs = APP_MODE.useCountdownTimer ? loadCountdownMinutes() * 60 * 1000 : null;
+
+  /** Get display time: countdown remaining or elapsed depending on mode. */
+  function getDisplayTime(elapsed) {
+    if (!APP_MODE.useCountdownTimer) return formatTime(elapsed);
+    const remaining = Math.max(0, countdownLimitMs - elapsed);
+    return formatTime(remaining);
+  }
+
+  /** Get urgency class for countdown timer. */
+  function getTimerUrgencyClass(elapsed) {
+    if (!APP_MODE.useCountdownTimer) return '';
+    const remaining = countdownLimitMs - elapsed;
+    if (remaining <= 10000) return 'timer-remaining-critical';
+    if (remaining <= 30000) return 'timer-remaining-urgent';
+    if (remaining <= 60000) return 'timer-remaining-warn';
+    return '';
+  }
+
+  /** Update the timer display element (shared across all interval locations). */
+  function updateTimerDisplay() {
+    const tv = document.querySelector('.timer-value');
+    if (!tv || !activeRun) return;
+    const elapsed = Date.now() - activeRun.startTime;
+    tv.textContent = getDisplayTime(elapsed);
+
+    if (APP_MODE.useCountdownTimer) {
+      tv.className = 'timer-value ' + getTimerUrgencyClass(elapsed);
+      if (countdownLimitMs - elapsed <= 0) {
+        handleTimeExpired();
+      }
+    }
+  }
+
+  /** Handle countdown reaching zero — auto-DNF regardless of obstacle start state. */
+  function handleTimeExpired() {
+    if (!activeRun || activeRun.finished) return;
+    activeRun.finished = true;
+    stopRankInterval();
+
+    const elapsed = countdownLimitMs;
+    clearInterval(activeRun.timerInterval);
+    activeRun.timerInterval = null;
+
+    activeRun.events.push({ time: elapsed, type: 'TIME_EXPIRED', obstacle: null });
+    activeRun.events.push({ time: elapsed, type: 'COMPLETED', obstacle: null });
+
+    const run = {
+      contestantName: activeRun.contestantName,
+      startTime: activeRun.startISO,
+      events: [...activeRun.events],
+      totalTime: elapsed,
+      dnf: true,
+      noWall: true,
+      heatNumber: loadHeatNumber(),
+    };
+    saveRun(run);
+
+    activeRun = null;
+    contestantName = '';
+
+    updateHeaderStats();
+    renderRunnerSection();
+    renderScoreboard();
+  }
 
   function showNewCompModal(runCount, { onExport, onDelete }) {
     const existing = document.querySelector('.modal-overlay');
@@ -283,12 +350,7 @@ export function renderTimer(app, obstacles, onFinish) {
     const progressPct = Math.round((passedCount / obstacles.length) * 100);
 
     if (run.timerStarted && !run.finished && !run.timerInterval) {
-      run.timerInterval = setInterval(() => {
-        const tv = document.querySelector('.timer-value');
-        if (tv && activeRun) {
-          tv.textContent = formatTime(Date.now() - activeRun.startTime);
-        }
-      }, 16);
+      run.timerInterval = setInterval(updateTimerDisplay, 16);
     }
 
     if (run.timerStarted && !run.finished && !rankInterval) {
@@ -300,11 +362,11 @@ export function renderTimer(app, obstacles, onFinish) {
       <div class="card timer-card ${run.wallUnlocked ? 'timer-card-wall-open' : ''}">
         <div class="timer-top">
           <div class="timer-info">
-            <span class="timer-status">${run.wallUnlocked ? '🏆 הקיר פתוח! ⏱' : run.allObstaclesPassed ? '🧱 מוכן לקיר ⏱' : !run.timerStarted ? '🏁 ממתין לזינוק' : '⏱ בריצה'}</span>
+            <span class="timer-status">${run.wallUnlocked ? '🏆 הקיר פתוח! ⏱' : run.allObstaclesPassed ? (APP_MODE.hasWallStage ? '🧱 מוכן לקיר ⏱' : '🏁 סיים!') : !run.timerStarted ? (APP_MODE.useCountdownTimer ? '⏳ ממתין לזינוק' : '🏁 ממתין לזינוק') : (APP_MODE.useCountdownTimer ? '⏳ ספירה לאחור' : '⏱ בריצה')}</span>
             <span class="timer-player">${esc(run.contestantName)}</span>
           </div>
           <div class="timer-display">
-            <span class="timer-value">${formatTime(elapsed)}</span>
+            <span class="timer-value ${getTimerUrgencyClass(elapsed)}">${getDisplayTime(elapsed)}</span>
           </div>
           <div class="live-rank-badge" id="live-rank-badge"></div>
         </div>
@@ -399,11 +461,11 @@ export function renderTimer(app, obstacles, onFinish) {
                 </div>
                 ${curContent}
               </div>
-              ${remaining > 0 ? `<div class="remaining-label">נותרו ${remaining} מכשולים + הקיר</div>` : ''}
+              ${remaining > 0 ? `<div class="remaining-label">נותרו ${remaining} מכשולים${APP_MODE.hasWallStage ? ' + הקיר' : ''}</div>` : ''}
             `;
           })()}
 
-          ${run.wallUnlocked ? `
+          ${APP_MODE.hasWallStage ? (run.wallUnlocked ? `
             <div class="obstacle-row obstacle-wall-unlocked">
               <div class="obstacle-badge badge-wall">🧱</div>
               <span class="obstacle-name">הקיר</span>
@@ -431,7 +493,7 @@ export function renderTimer(app, obstacles, onFinish) {
               <span class="obstacle-name">הקיר</span>
               <span class="lock-label">🔒 נעול</span>
             </div>
-          `}
+          `) : ''}
         </div>
 
         <div class="timer-footer">
@@ -642,12 +704,7 @@ export function renderTimer(app, obstacles, onFinish) {
       activeRun.startTime = now;
       activeRun.startISO = new Date(now).toISOString();
       activeRun.timerStarted = true;
-      activeRun.timerInterval = setInterval(() => {
-        const tv = document.querySelector('.timer-value');
-        if (tv && activeRun) {
-          tv.textContent = formatTime(Date.now() - activeRun.startTime);
-        }
-      }, 16);
+      activeRun.timerInterval = setInterval(updateTimerDisplay, 16);
     }
 
     const elapsed = Date.now() - activeRun.startTime;
@@ -675,6 +732,16 @@ export function renderTimer(app, obstacles, onFinish) {
     if (activeRun.currentObstacleIndex >= obstacles.length) {
       activeRun.allObstaclesPassed = true;
       activeRun.allObstaclesPassedTime = elapsed;
+
+      if (!APP_MODE.hasWallStage) {
+        activeRun.finished = true;
+        stopRankInterval();
+        clearInterval(activeRun.timerInterval);
+        activeRun.timerInterval = null;
+        finishRunWithoutWall(elapsed);
+        return;
+      }
+
       renderRunnerSection();
       return;
     }
@@ -788,6 +855,35 @@ export function renderTimer(app, obstacles, onFinish) {
     renderScoreboard();
   }
 
+  function finishRunWithoutWall(totalTime) {
+    if (!activeRun) return;
+
+    if (activeRun.timerInterval) {
+      clearInterval(activeRun.timerInterval);
+      activeRun.timerInterval = null;
+    }
+
+    activeRun.events.push({ time: totalTime, type: 'COMPLETED', obstacle: null });
+
+    const run = {
+      contestantName: activeRun.contestantName,
+      startTime: activeRun.startISO,
+      events: [...activeRun.events],
+      totalTime,
+      dnf: false,
+      noWall: true,
+      heatNumber: loadHeatNumber(),
+    };
+    saveRun(run);
+
+    activeRun = null;
+    contestantName = '';
+
+    updateHeaderStats();
+    renderRunnerSection();
+    renderScoreboard();
+  }
+
   function cancelRun() {
     if (!activeRun) return;
     clearInterval(activeRun.timerInterval);
@@ -798,12 +894,7 @@ export function renderTimer(app, obstacles, onFinish) {
 
   function restartTimerInterval() {
     if (!activeRun.timerInterval) {
-      activeRun.timerInterval = setInterval(() => {
-        const tv = document.querySelector('.timer-value');
-        if (tv && activeRun) {
-          tv.textContent = formatTime(Date.now() - activeRun.startTime);
-        }
-      }, 16);
+      activeRun.timerInterval = setInterval(updateTimerDisplay, 16);
     }
   }
 
