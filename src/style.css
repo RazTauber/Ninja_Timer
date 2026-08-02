@@ -1889,16 +1889,18 @@ html, body {
 .th-mega {
   text-align: center;
   width: 4rem;
+  font-size: 0.85rem;
 }
 
 .td-wall {
   text-align: center;
+  font-size: 1rem;
   font-weight: 700;
 }
 
 .td-wall-mega {
   color: var(--gold-text);
-  font-size: 1rem;
+  filter: drop-shadow(0 0 4px rgba(232, 181, 0, 0.5));
 }
 
 .td-wall-pass {
@@ -1906,7 +1908,7 @@ html, body {
 }
 
 .td-wall-fail {
-  color: var(--red-vivid);
+  color: var(--red);
   background: var(--red-soft);
   font-weight: 700;
 }
@@ -2416,31 +2418,6 @@ html, body {
 }
 
 /* ── Scoreboard: Wall Result Column ──────────────────── */
-.th-mega {
-  text-align: center;
-  width: 4rem;
-  font-size: 0.85rem;
-}
-
-.td-wall {
-  text-align: center;
-  font-size: 1rem;
-  font-weight: 700;
-}
-
-.td-wall-mega {
-  color: var(--gold-text);
-  filter: drop-shadow(0 0 4px rgba(232, 181, 0, 0.5));
-}
-
-.td-wall-pass {
-  color: var(--blue-light);
-}
-
-.td-wall-fail {
-  color: var(--red);
-}
-
 /* ── Finals Mode ─────────────────────────────────────── */
 
 :root {

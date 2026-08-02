@@ -80,8 +80,9 @@ export function renderTimer(app, obstacles, onFinish) {
 
   /** Update the timer display element (shared across all interval locations). */
   function updateTimerDisplay() {
+    if (!activeRun || activeRun.finished) return;
     const tv = document.querySelector('.timer-value');
-    if (!tv || !activeRun) return;
+    if (!tv) return;
     const elapsed = Date.now() - activeRun.startTime;
     tv.textContent = getDisplayTime(elapsed);
 
