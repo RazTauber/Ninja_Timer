@@ -934,7 +934,7 @@ export function renderTimer(app, obstacles, onFinish) {
 
     if (lastEvent.type === 'OBSTACLE_START') {
       const remainingStarts = activeRun.events.filter(e => e.type === 'OBSTACLE_START');
-      if (remainingStarts.length === 0) {
+      if (remainingStarts.length === 0 && !APP_MODE.useCountdownTimer) {
         clearInterval(activeRun.timerInterval);
         activeRun.timerInterval = null;
         activeRun.timerStarted = false;

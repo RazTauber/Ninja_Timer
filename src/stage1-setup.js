@@ -113,8 +113,8 @@ export function renderSetup(app, onConfirm, onContinue) {
           </div>
           <div class="pool-search-wrap">
             <span class="pool-search-icon">🔍</span>
-            <input type="text" class="pool-search" placeholder="חפשו מכשול..." value="${poolFilter}" />
-            ${poolFilter ? '<button class="pool-search-clear" title="נקה חיפוש">✕</button>' : ''}
+            <input type="text" class="pool-search" placeholder="חפשו מכשול..." value="${esc(poolFilter)}" />
+            <button class="pool-search-clear" title="נקה חיפוש" style="display:${poolFilter ? '' : 'none'}">✕</button>
           </div>
           <div class="obstacle-pool-scroll">
             <div class="obstacle-pool">
@@ -244,8 +244,11 @@ export function renderSetup(app, onConfirm, onContinue) {
       poolFilter = term;
       const chips = app.querySelectorAll('.pool-chip');
       const noResults = app.querySelector('.pool-no-results');
+      const clearBtnEl = app.querySelector('.pool-search-clear');
       const lowerTerm = term.toLowerCase();
       let visibleCount = 0;
+
+      if (clearBtnEl) clearBtnEl.style.display = term ? '' : 'none';
 
       chips.forEach(chip => {
         const he = chip.dataset.obstacle;
@@ -364,6 +367,14 @@ export function renderSetup(app, onConfirm, onContinue) {
     const continueBtn = app.querySelector('.btn-continue-heat');
     if (continueBtn) {
       continueBtn.addEventListener('click', () => {
+        if (APP_MODE.useCountdownTimer) {
+          const dInput = app.querySelector('.duration-input');
+          if (dInput) {
+            const val = parseFloat(dInput.value);
+            if (val >= 0.5 && val <= 99) countdownMinutes = val;
+          }
+          saveCountdownMinutes(countdownMinutes);
+        }
         onContinue();
       });
     }
