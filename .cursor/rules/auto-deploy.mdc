@@ -1,5 +1,5 @@
 ---
-description: Ensures every commit+push to master is followed by a production deployment, and every deploy request includes commit+push first.
+description: Ensures every commit+push to master is followed by a production deployment of BOTH sites, and every deploy request includes commit+push first.
 globs:
 alwaysApply: true
 ---
@@ -8,16 +8,25 @@ alwaysApply: true
 
 This project uses manual deployment to Cloudflare Pages. The user is not familiar with DevOps workflows, so the AI must handle deployment automatically.
 
+## Sites
+
+There are two production sites from the same codebase:
+
+- **Regular**: https://ninja-timer.pages.dev/ (project: `ninja-timer`)
+- **Finals**: https://ninja-timer-finals.pages.dev/ (project: `ninja-timer-finals`)
+
 ## Rules
 
-1. **After every commit + push**: Always follow up with a production deployment (`npm run build` then `npx wrangler pages deploy dist --project-name ninja-timer --branch master`).
+1. **After every commit + push**: Always follow up with a production deployment of BOTH sites:
+   - `npm run build` then `npx wrangler pages deploy dist --project-name ninja-timer --branch master`
+   - `npm run build:finals` then `npx wrangler pages deploy dist-finals --project-name ninja-timer-finals --branch master`
 
-2. **When the user asks to "deploy"**: Also commit any uncommitted changes and push to GitHub first, then deploy.
+2. **When the user asks to "deploy"**: Also commit any uncommitted changes and push to GitHub first, then deploy both sites.
 
-3. **When the user asks to "commit" or "push"**: Also deploy to production afterward.
+3. **When the user asks to "commit" or "push"**: Also deploy both sites to production afterward.
 
-4. **Never use `--branch production`** — the production branch in Cloudflare Pages is `master`. Using any other branch name creates a Preview deployment that does NOT go to the live URL.
+4. **Never use `--branch production`** — the production branch in both Cloudflare Pages projects is `master`. Using any other branch name creates a Preview deployment that does NOT go to the live URL.
 
-5. **Always verify** the deploy output shows "Deployment complete" before telling the user it's live.
+5. **Always verify** both deploy outputs show "Deployment complete" before telling the user it's live.
 
-6. The live URL is: https://ninja-timer.pages.dev/
+6. **Deploy only one site** if the user explicitly specifies (e.g., "deploy only the finals site").

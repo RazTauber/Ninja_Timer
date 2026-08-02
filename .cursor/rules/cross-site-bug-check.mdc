@@ -1,0 +1,21 @@
+---
+description: When fixing or encountering a bug on either site (regular or finals), always verify whether the same bug exists on the other site.
+globs:
+alwaysApply: true
+---
+
+# Cross-Site Bug Check Rule
+
+This project has two sites built from the same codebase: the regular site and the finals site. They share most code but diverge via the `isFinalsMode` flag (from `src/mode.js`).
+
+## Rules
+
+1. **When a bug is found or fixed on either site**, always check whether the same bug can occur on the other site.
+
+2. **If the bug is in shared code** (not gated by `isFinalsMode`): it affects both sites. Fix once and confirm both are covered.
+
+3. **If the bug is in mode-specific code** (inside an `if (isFinalsMode)` or `if (!isFinalsMode)` block): verify it doesn't have a parallel issue in the other mode's branch.
+
+4. **Report to the user** which sites were affected and whether the fix applies to one or both.
+
+5. **After deploying a bug fix**, always deploy both sites (per the auto-deploy rule).

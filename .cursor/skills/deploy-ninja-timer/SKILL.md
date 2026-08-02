@@ -8,40 +8,56 @@ disable-model-invocation: true
 
 The user is not a DevOps person. Never assume they know CLI commands, git workflows, or deployment jargon. Just do it and report status clearly.
 
-## Production Environment
+## Production Environments
 
-- **Host**: Cloudflare Pages
-- **Project name**: `ninja-timer`
-- **Live URL**: https://ninja-timer.pages.dev/
+There are TWO sites deployed from the same codebase:
+
+| Site | Cloudflare Project | URL | Build Command |
+|------|-------------------|-----|---------------|
+| Regular | `ninja-timer` | https://ninja-timer.pages.dev/ | `npm run build` → `dist/` |
+| Finals | `ninja-timer-finals` | https://ninja-timer-finals.pages.dev/ | `npm run build:finals` → `dist-finals/` |
+
 - **Deploy method**: Manual via `wrangler pages deploy` (NOT auto-deployed on git push)
-- **Build tool**: Vite (`npm run build` → outputs to `dist/`)
 - **Branch**: `master` on `origin` (GitHub)
 
-## Deployment Steps
+## Deployment Steps (deploy BOTH sites)
 
-1. **Build** the production bundle:
+### Regular site:
+
+1. Build:
    ```
    npm run build
    ```
-   Verify output: `dist/` folder with `.html`, `.js`, `.css` files. A chunk size warning for xlsx is expected and harmless.
 
-2. **Deploy** to Cloudflare Pages production:
+2. Deploy:
    ```
    npx wrangler pages deploy dist --project-name ninja-timer --branch master
    ```
-   The `--branch master` flag is required to deploy to the main production URL. The Cloudflare Pages project is configured with `master` as the production branch. Using any other branch name (including "production") results in a Preview deployment only.
 
-3. **Verify** deployment succeeded — look for:
+### Finals site:
+
+3. Build:
    ```
-   ✨ Deployment complete!
-   ✨ Deployment alias URL: https://production.ninja-timer.pages.dev
+   npm run build:finals
    ```
+
+4. Deploy:
+   ```
+   npx wrangler pages deploy dist-finals --project-name ninja-timer-finals --branch master
+   ```
+
+### Verify both:
+
+5. Look for "Deployment complete!" in both deploy outputs.
+
+**Always deploy BOTH sites** unless the user explicitly says to deploy only one.
 
 ## Important Notes
 
-- `dist/` is in `.gitignore` — Cloudflare does NOT auto-build from git. You must build locally and deploy with wrangler.
-- Always `npm run build` before deploying. The `dist/` folder may be stale from a previous build.
+- `dist/` and `dist-finals/` are in `.gitignore` — Cloudflare does NOT auto-build from git. You must build locally and deploy with wrangler.
+- Always build before deploying. The `dist/` and `dist-finals/` folders may be stale from a previous build.
 - Git commit and push are separate from deployment. Commit keeps the code safe on GitHub; deploy pushes the built app to Cloudflare.
+- The `--branch master` flag is required for BOTH projects. Using any other branch creates a Preview deployment only.
 - The Cloudflare account ID is in `node_modules/.cache/wrangler/pages.json` — do not expose it.
 
 ## Pre-Deployment Checklist
