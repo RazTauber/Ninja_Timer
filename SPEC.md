@@ -313,12 +313,33 @@ Competitors who cleared all obstacles but failed the wall are in Tier 2 with `wa
 ## Deployment
 
 - **Platform:** Cloudflare Pages (static Vite build)
-- **URL:** https://ninja-timer.pages.dev/
-- **Deploy command:**
-  ```bash
-  npx vite build
-  npx wrangler pages deploy dist --project-name=ninja-timer --branch=master
-  ```
+- **Regular site:** https://ninja-timer.pages.dev/
+- **Finals site:** https://ninja-timer-finals.pages.dev/
+
+| Site | Build command | Output | Deploy command |
+|------|--------------|--------|----------------|
+| Regular | `npm run build` | `dist/` | `npx wrangler pages deploy dist --project-name ninja-timer --branch master` |
+| Finals | `npm run build:finals` | `dist-finals/` | `npx wrangler pages deploy dist-finals --project-name ninja-timer-finals --branch master` |
+
+---
+
+## Finals Mode
+
+The finals site shares the same codebase but is built with `VITE_APP_MODE=finals`. The mode is resolved in `src/mode.js` which exports `APP_MODE` flags:
+
+| Flag | Regular | Finals | Effect |
+|------|---------|--------|--------|
+| `showFinalsBadge` | false | true | Scrolling "FINALS" marquee in header |
+| `hasWallStage` | true | false | Wall obstacle removed from flow and scoreboard |
+| `useCountdownTimer` | true (up) | true (down) | Timer counts down from user-configured minutes |
+
+Key behavioral differences in finals:
+- Competitors have X minutes (configurable) to clear all obstacles; clock counts down
+- No wall stage — passing all obstacles = finisher
+- Scoreboard shows obstacle **pass time** (not start time)
+- Export uses 1 column per obstacle (pass/fall result only), no wall columns
+- Runs are saved with `mode: 'finals'` and `noWall: true`
+- `TIME_EXPIRED` event fires when countdown reaches zero (auto-DNF)
 
 ---
 
@@ -326,27 +347,33 @@ Competitors who cleared all obstacles but failed the wall are in Tier 2 with `wa
 
 ```
 Ninja_Timer/
-├── index.html              # Entry point (RTL Hebrew, CSP, no external fonts)
+├── index.html              # Entry point (RTL Hebrew, CSP)
 ├── public/
 │   └── ninja-logo.png      # Brand logo (used as favicon + header)
 ├── src/
 │   ├── main.js             # App entry point, routing between stages
+│   ├── mode.js             # Build-time mode flags (regular vs finals)
 │   ├── stage1-setup.js     # Obstacle selection, player registration, date/heat
 │   ├── stage2-timer.js     # Timer, obstacle flow, wall stage, scoreboard
 │   ├── stage3-export.js    # Export screen with run preview
 │   ├── data.js             # localStorage CRUD, obstacle pool, ranking, Excel export
 │   └── style.css           # All styles (Ninja Israel 2026 design system tokens)
 ├── docs/
-│   ├── ranking-guidelines.md    # Official ranking rules and implementation
-│   └── wall-finish-logic-design.md  # Wall stage design document
+│   ├── ranking-guidelines.md       # Official ranking rules and implementation
+│   ├── wall-finish-logic-design.md # Wall stage design document
+│   ├── known-issues.md            # Known limitations
+│   └── ranking_simulation.py      # Ranking test/simulation script
 ├── package.json
 ├── vite.config.js
 ├── .gitignore
+├── README.md               # Developer entry point
 ├── SPEC.md                 # This file
 └── .cursor/
     ├── rules/
-    │   └── project-config.mdc
+    │   ├── project-config.mdc
+    │   ├── auto-deploy.mdc
+    │   └── cross-site-bug-check.mdc
     └── skills/
-        └── ninja-design-system/
-            └── SKILL.md
+        ├── ninja-design-system/SKILL.md
+        └── deploy-ninja-timer/SKILL.md
 ```

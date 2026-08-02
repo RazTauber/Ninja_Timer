@@ -50,10 +50,10 @@ All tokens live in `src/style.css` under `:root`. **Never hard-code hex values i
 | Body text, labels | `Heebo` | 400–700 | normal | RTL Hebrew |
 | Timer digits | `Courier New` | 700 | — | `font-variant-numeric: tabular-nums` |
 
-Load via Google Fonts (already in `index.html`):
+Load via self-hosted `@font-face` declarations in `src/style.css` (font files in `/fonts/`):
 ```
-Barlow+Condensed:wght@600;700;800;900
-Heebo:wght@400;500;600;700;800;900
+Barlow Condensed: 600, 700, 800, 900
+Heebo: 400, 500, 600, 700, 800, 900
 ```
 
 ## Component Patterns
@@ -173,21 +173,21 @@ event recorded before Pass/Fall becomes available.
 
 ## Deployment
 
-Production URL: **https://ninja-timer.pages.dev/**
-Platform: Cloudflare Pages (static Vite build)
+Two production sites from the same codebase:
 
-Always deploy to production:
-```bash
-npx vite build
-npx wrangler pages deploy dist --project-name=ninja-timer --branch=master
-```
+| Site | URL | Build | Deploy |
+|------|-----|-------|--------|
+| Regular | https://ninja-timer.pages.dev/ | `npm run build` | `npx wrangler pages deploy dist --project-name ninja-timer --branch master` |
+| Finals | https://ninja-timer-finals.pages.dev/ | `npm run build:finals` | `npx wrangler pages deploy dist-finals --project-name ninja-timer-finals --branch master` |
+
+Always deploy both sites after changes.
 
 ## Files Modified by This Design System
 
 | File | Role |
 |---|---|
-| `src/style.css` | All tokens + component styles |
-| `index.html` | Google Fonts link (`Barlow Condensed` + `Heebo`) |
+| `src/style.css` | All tokens + component styles + @font-face declarations |
+| `index.html` | Entry point (no external font links) |
 | `src/stage1-setup.js` | Setup screen DOM |
 | `src/stage2-timer.js` | Timer + scoreboard DOM |
 | `src/stage3-export.js` | Export screen DOM |

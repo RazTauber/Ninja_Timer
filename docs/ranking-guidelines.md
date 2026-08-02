@@ -100,10 +100,18 @@ The wall stage is treated as an obstacle for ranking purposes:
 
 ### Scoreboard Display
 
-- **All obstacle columns** on the live scoreboard show the **start time (זינוק)** of each obstacle — the moment the competitor began that obstacle. This applies to both passed and fallen obstacles.
-- For obstacles where a competitor fell, the cell is highlighted in red to distinguish it from a pass, but the time shown is still the start time.
-- For wall-failed competitors, the wall column shows the wall unlock time (start time of wall obstacle).
-- The export (CSV) provides separate זינוק/תוצאה columns per obstacle for detailed analysis; the live scoreboard intentionally keeps only the start time for a compact view.
+- **Regular mode**: All obstacle columns show the **start time (זינוק)** — the moment the competitor began that obstacle. Falls are highlighted in red.
+- **Finals mode**: All obstacle columns show the **pass time (תוצאה)** — the elapsed time when the competitor completed the obstacle. Falls show the fall elapsed time, highlighted in red.
+- For wall-failed competitors (regular mode only), the wall column shows the wall unlock time.
+- The export (.xlsx) in regular mode provides separate זינוק/תוצאה columns per obstacle; in finals mode it uses a single column per obstacle showing pass/fall time.
+
+### Finals Mode Ranking
+
+In finals mode:
+- There is **no wall stage** — passing all obstacles makes the competitor a finisher (Tier 1).
+- Wall-related ranking (Tier 2 wall-failed) does not apply.
+- If countdown reaches zero, the run is saved as DNF with a `TIME_EXPIRED` event. These competitors are ranked as fallers by obstacles completed.
+- The same `rankRuns()` function handles both modes — `getObstaclesCompleted()` and `getRankTime()` work identically regardless of mode.
 
 ---
 

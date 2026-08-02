@@ -271,6 +271,7 @@ function esc(v) {
 
 const WALL_RESULTS = { MEGA_WALL: 'MEGA_WALL', WALL: 'WALL', FAILED: 'FAILED' };
 
+/** Normalize wall outcome to MEGA_WALL/WALL/FAILED/null for display. */
 function normalizeWallResult(run) {
   if (run.noWall) return null;
   if (run.wallResult) return run.wallResult;
@@ -289,10 +290,12 @@ function wallResultDisplay(run) {
   return '-';
 }
 
+/** Resolve run mode with backward compat for legacy runs without mode field. */
 function getRunMode(run) {
   return run.mode ?? (run.noWall ? 'finals' : 'regular');
 }
 
+/** Return the ranking-relevant time for a run (total time, fall start, or wall unlock). */
 function getRankTime(run) {
   if (run.dnf) {
     if (run.wallFailed) {
@@ -311,6 +314,7 @@ function getObstaclesCompleted(run) {
   return run.events.filter(e => e.type === 'PASSED').length;
 }
 
+/** Sort runs by ranking rules: finishers by time, then fallers by progress. */
 function rankRuns(runs) {
   return [...runs].sort((a, b) => {
     if (a.dnf && !b.dnf) return 1;
@@ -323,6 +327,7 @@ function rankRuns(runs) {
   });
 }
 
+/** Generate and download a styled .xlsx export of competition results. */
 function downloadRunsCSV(runs, obstacles) {
   const currentHeat = loadHeatNumber();
   const isFinals = APP_MODE.useCountdownTimer;

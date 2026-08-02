@@ -770,6 +770,7 @@ export function renderTimer(app, obstacles, onFinish) {
     renderRunnerSection();
   }
 
+  /** Process a confirmed fall: save DNF run and reset state. */
   function handleFall(obstacleIndex, pressStart) {
     if (!activeRun || activeRun.finished) return;
     if (obstacleIndex !== activeRun.currentObstacleIndex) return;
@@ -812,6 +813,7 @@ export function renderTimer(app, obstacles, onFinish) {
     renderScoreboard();
   }
 
+  /** Save a DNF run after wall failure. */
   function finishRunWallFailed(totalTime) {
     if (!activeRun) return;
 
@@ -870,6 +872,7 @@ export function renderTimer(app, obstacles, onFinish) {
     renderScoreboard();
   }
 
+  /** Finals finish path: save successful run without wall stage. */
   function finishRunWithoutWall(totalTime) {
     if (!activeRun) return;
 
