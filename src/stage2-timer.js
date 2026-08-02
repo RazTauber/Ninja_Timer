@@ -1,4 +1,4 @@
-import { saveRun, loadRuns, clearLastHeatData, formatTime, formatSeconds, formatHebrewDate, loadCompDate, downloadRunsCSV, WALL_RESULTS, normalizeWallResult, OBSTACLE_EN, loadHeatNumber, loadPlayers, rankRuns, getObstaclesCompleted, getRankTime, loadCountdownMinutes, esc } from './data.js';
+import { saveRun, loadRuns, clearLastHeatData, formatTime, formatSeconds, formatHebrewDate, loadCompDate, downloadRunsCSV, WALL_RESULTS, normalizeWallResult, OBSTACLE_EN, loadHeatNumber, loadPlayers, rankRuns, getObstaclesCompleted, getRankTime, getRunMode, loadCountdownMinutes, esc } from './data.js';
 import { APP_MODE } from './mode.js';
 
 const HOLD_DURATION = 1200;
@@ -113,6 +113,7 @@ export function renderTimer(app, obstacles, onFinish) {
       totalTime: elapsed,
       dnf: true,
       noWall: true,
+      mode: 'finals',
       heatNumber: loadHeatNumber(),
     };
     saveRun(run);
@@ -170,6 +171,7 @@ export function renderTimer(app, obstacles, onFinish) {
     app.innerHTML = `
       <div class="comp-layout">
         <header class="comp-header">
+          ${APP_MODE.showFinalsBadge ? `<div class="finals-ticker" aria-hidden="true"><div class="finals-ticker__track"><span>FINALS</span><span>FINALS</span><span>FINALS</span><span>FINALS</span><span>FINALS</span><span>FINALS</span><span>FINALS</span><span>FINALS</span></div></div>` : ''}
           <div class="header-right">
             <button class="header-btn btn-new-comp" title="התחלת תחרות חדשה">
               <span class="btn-arrow-back">→</span>
@@ -795,6 +797,8 @@ export function renderTimer(app, obstacles, onFinish) {
       events: [...activeRun.events],
       totalTime: elapsed,
       dnf: true,
+      noWall: !APP_MODE.hasWallStage,
+      mode: APP_MODE.useCountdownTimer ? 'finals' : 'regular',
       heatNumber: loadHeatNumber(),
     };
     saveRun(run);
@@ -820,6 +824,7 @@ export function renderTimer(app, obstacles, onFinish) {
       dnf: true,
       wallResult: WALL_RESULTS.FAILED,
       wallFailed: true,
+      mode: 'regular',
       heatNumber: loadHeatNumber(),
     };
     saveRun(run);
@@ -851,6 +856,7 @@ export function renderTimer(app, obstacles, onFinish) {
       wallResult,
       wallAttempts: 3,
       megaWall: wallResult === WALL_RESULTS.MEGA_WALL,
+      mode: 'regular',
       heatNumber: loadHeatNumber(),
     };
     saveRun(run);
@@ -880,6 +886,7 @@ export function renderTimer(app, obstacles, onFinish) {
       totalTime,
       dnf: false,
       noWall: true,
+      mode: 'finals',
       heatNumber: loadHeatNumber(),
     };
     saveRun(run);
@@ -992,7 +999,7 @@ export function renderTimer(app, obstacles, onFinish) {
                   <th class="th-order">סדר</th>
                   <th class="th-name">מתחרה</th>
                   ${obstacles.map((o, i) => `<th class="th-obstacle"><span class="th-num">${i + 1}</span><span class="th-he">${o}</span><span class="th-en">${OBSTACLE_EN.get(o) || ''}</span></th>`).join('')}
-                  <th class="th-mega" title="תוצאת קיר">קיר</th>
+                  ${APP_MODE.hasWallStage ? '<th class="th-mega" title="תוצאת קיר">קיר</th>' : ''}
                   <th>סה"כ</th>
                 </tr>
               </thead>
@@ -1000,15 +1007,16 @@ export function renderTimer(app, obstacles, onFinish) {
                 ${sortedRuns.map((run, rankIdx) => {
                   const rank = rankIdx + 1;
                   const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : rank;
-                  const obstacleStartTimes = {};
+                  const obstacleTimes = {};
                   const fellAt = {};
+                  const isFinalsRun = getRunMode(run) === 'finals';
                   for (const e of run.events) {
-                    if (e.type === 'OBSTACLE_START' && e.obstacle) {
-                      obstacleStartTimes[e.obstacle] = e.time;
+                    if (isFinalsRun) {
+                      if (e.type === 'PASSED' && e.obstacle) obstacleTimes[e.obstacle] = e.time;
+                    } else {
+                      if (e.type === 'OBSTACLE_START' && e.obstacle) obstacleTimes[e.obstacle] = e.time;
                     }
-                    if (e.type === 'FALL' && e.obstacle) {
-                      fellAt[e.obstacle] = true;
-                    }
+                    if (e.type === 'FALL' && e.obstacle) fellAt[e.obstacle] = e.time;
                   }
                   const isDNF = run.dnf;
                   const startOrder = orderMap.get(run);
@@ -1019,14 +1027,20 @@ export function renderTimer(app, obstacles, onFinish) {
                       <td class="td-order">${startOrder}</td>
                       <td class="td-name">${esc(run.contestantName)}</td>
                       ${obstacles.map(o => {
-                        const t = obstacleStartTimes[o];
+                        const t = obstacleTimes[o];
+                        const fallTime = fellAt[o];
+                        if (isFinalsRun) {
+                          if (t !== undefined) return `<td class="td-obstacle">${formatSeconds(t)}</td>`;
+                          if (fallTime !== undefined) return `<td class="td-obstacle td-fall">${formatSeconds(fallTime)}</td>`;
+                          return `<td class="td-obstacle td-empty">-</td>`;
+                        }
                         if (t !== undefined) {
-                          const isFall = fellAt[o];
+                          const isFall = fallTime !== undefined;
                           return `<td class="td-obstacle ${isFall ? 'td-fall' : ''}">${formatSeconds(t)}</td>`;
                         }
                         return `<td class="td-obstacle td-empty">-</td>`;
                       }).join('')}
-                      ${(() => {
+                      ${APP_MODE.hasWallStage ? (() => {
                         const wr = normalizeWallResult(run);
                         if (!wr) return '<td class="td-wall td-empty">-</td>';
                         if (wr === WALL_RESULTS.MEGA_WALL) return '<td class="td-wall td-wall-mega">🔥 MEGA</td>';
@@ -1037,7 +1051,7 @@ export function renderTimer(app, obstacles, onFinish) {
                           return `<td class="td-wall td-wall-fail">${wallStartTime}</td>`;
                         }
                         return '<td class="td-wall td-empty">-</td>';
-                      })()}
+                      })() : ''}
                       <td class="td-total ${isDNF ? 'td-dnf' : ''}">${formatSeconds(run.totalTime)}</td>
                     </tr>
                   `;

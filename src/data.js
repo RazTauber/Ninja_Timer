@@ -1,4 +1,5 @@
 import * as XLSX from 'xlsx-js-style';
+import { APP_MODE } from './mode.js';
 
 /**
  * SECURITY POLICY — LOCAL-ONLY DATA STORAGE
@@ -288,6 +289,10 @@ function wallResultDisplay(run) {
   return '-';
 }
 
+function getRunMode(run) {
+  return run.mode ?? (run.noWall ? 'finals' : 'regular');
+}
+
 function getRankTime(run) {
   if (run.dnf) {
     if (run.wallFailed) {
@@ -320,13 +325,22 @@ function rankRuns(runs) {
 
 function downloadRunsCSV(runs, obstacles) {
   const currentHeat = loadHeatNumber();
-  const obstacleHeaders = obstacles.flatMap(o => [`${obstacleLabel(o)} — זינוק`, `${obstacleLabel(o)} — תוצאה`]);
-  const headers = ['תאריך', 'מקצה', 'דירוג', 'סדר', 'מתחרה', ...obstacleHeaders, 'זמן סה"כ', 'סיים?', 'התחלת קיר', 'תוצאת קיר'];
+  const isFinals = APP_MODE.useCountdownTimer;
+
+  const obstacleHeaders = isFinals
+    ? obstacles.map(o => `${obstacleLabel(o)} — תוצאה`)
+    : obstacles.flatMap(o => [`${obstacleLabel(o)} — זינוק`, `${obstacleLabel(o)} — תוצאה`]);
+
+  const headers = isFinals
+    ? ['תאריך', 'מקצה', 'דירוג', 'סדר', 'מתחרה', ...obstacleHeaders, 'זמן סה"כ', 'סיים?']
+    : ['תאריך', 'מקצה', 'דירוג', 'סדר', 'מתחרה', ...obstacleHeaders, 'זמן סה"כ', 'סיים?', 'התחלת קיר', 'תוצאת קיר'];
 
   const sortedForRank = rankRuns(runs);
   const rankMap = new Map(sortedForRank.map((r, i) => [r, i + 1]));
 
-  const headlineText = `נינג'ה ישראל — תוצאות תחרות — ${formatHebrewDate(loadCompDate())} — מקצה ${currentHeat}`;
+  const headlineText = isFinals
+    ? `נינג'ה ישראל — תוצאות גמר — ${formatHebrewDate(loadCompDate())} — מקצה ${currentHeat}`
+    : `נינג'ה ישראל — תוצאות תחרות — ${formatHebrewDate(loadCompDate())} — מקצה ${currentHeat}`;
 
   const dataRows = sortedForRank.map((run) => {
     const runDate = new Date(run.startTime);
@@ -343,37 +357,55 @@ function downloadRunsCSV(runs, obstacles) {
     const order = run.startOrder ?? (runs.indexOf(run) + 1);
     const rank = rankMap.get(run);
 
-    return [
+    const obstacleData = isFinals
+      ? obstacles.map(o => {
+          if (obstacleTimes[o]) return obstacleTimes[o];
+          const fell = run.events.find(e => e.type === 'FALL' && e.obstacle === o);
+          if (fell) {
+            return formatSeconds(fell.time) + ' (נפילה)';
+          }
+          return '-';
+        })
+      : obstacles.flatMap(o => {
+          const startEvt = run.events.find(e => e.type === 'OBSTACLE_START' && e.obstacle === o);
+          const startCol = startEvt ? formatSeconds(startEvt.time) : '-';
+          let resultCol;
+          if (obstacleTimes[o]) {
+            resultCol = obstacleTimes[o];
+          } else {
+            const fell = run.events.find(e => e.type === 'FALL' && e.obstacle === o);
+            if (fell) {
+              const displayTime = fell.obstacleStartTime != null ? fell.obstacleStartTime : fell.time;
+              resultCol = formatSeconds(displayTime) + ' (נפילה)';
+            } else {
+              resultCol = '-';
+            }
+          }
+          return [startCol, resultCol];
+        });
+
+    const row = [
       dateStr,
       run.heatNumber ?? currentHeat,
       rank,
       order,
       run.contestantName,
-      ...obstacles.flatMap(o => {
-        const startEvt = run.events.find(e => e.type === 'OBSTACLE_START' && e.obstacle === o);
-        const startCol = startEvt ? formatSeconds(startEvt.time) : '-';
-        let resultCol;
-        if (obstacleTimes[o]) {
-          resultCol = obstacleTimes[o];
-        } else {
-          const fell = run.events.find(e => e.type === 'FALL' && e.obstacle === o);
-          if (fell) {
-            const displayTime = fell.obstacleStartTime != null ? fell.obstacleStartTime : fell.time;
-            resultCol = formatSeconds(displayTime) + ' (נפילה)';
-          } else {
-            resultCol = '-';
-          }
-        }
-        return [startCol, resultCol];
-      }),
+      ...obstacleData,
       formatSeconds(run.totalTime),
       finished ? 'כן' : 'לא',
-      (() => {
-        const wallEvt = run.events.find(e => e.type === 'WALL_UNLOCKED');
-        return wallEvt ? formatSeconds(wallEvt.time) : '-';
-      })(),
-      wallResultDisplay(run),
     ];
+
+    if (!isFinals) {
+      row.push(
+        (() => {
+          const wallEvt = run.events.find(e => e.type === 'WALL_UNLOCKED');
+          return wallEvt ? formatSeconds(wallEvt.time) : '-';
+        })(),
+        wallResultDisplay(run),
+      );
+    }
+
+    return row;
   });
 
   const wsData = [[headlineText], headers, ...dataRows];
@@ -505,9 +537,9 @@ function downloadRunsCSV(runs, obstacles) {
     return base;
   };
 
-  const finishedColIdx = totalCols - 3;
-  const wallStartColIdx = totalCols - 2;
-  const wallColIdx = totalCols - 1;
+  const finishedColIdx = totalCols - (isFinals ? 1 : 3);
+  const wallStartColIdx = isFinals ? -1 : totalCols - 2;
+  const wallColIdx = isFinals ? -1 : totalCols - 1;
 
   for (let c = 0; c < totalCols; c++) {
     const addr = XLSX.utils.encode_cell({ r: 0, c });
@@ -565,7 +597,9 @@ function downloadRunsCSV(runs, obstacles) {
 
   const compDate = loadCompDate();
   const dateStr = compDate || getTodayISO();
-  const filename = `תוצאות-נינגה-${dateStr}-מקצה-${currentHeat}.xlsx`;
+  const filename = isFinals
+    ? `תוצאות-נינגה-גמר-${dateStr}-מקצה-${currentHeat}.xlsx`
+    : `תוצאות-נינגה-${dateStr}-מקצה-${currentHeat}.xlsx`;
 
   const a = document.createElement('a');
   a.href = url;
@@ -609,6 +643,7 @@ export {
   formatHebrewDate,
   getTodayISO,
   getRankTime,
+  getRunMode,
   getObstaclesCompleted,
   rankRuns,
   normalizeWallResult,
