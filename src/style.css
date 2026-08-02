@@ -2449,17 +2449,17 @@ html, body {
   top: 12px;
   right: 12px;
   z-index: 30;
-  padding: 10px 20px;
-  border-radius: 10px;
+  padding: 24px 48px;
+  border-radius: 14px;
   background: var(--finals-green-soft);
-  border: 2px solid var(--finals-green);
+  border: 3px solid var(--finals-green);
   box-shadow:
     0 0 20px var(--finals-green-glow),
     0 4px 16px rgba(0, 0, 16, 0.55);
   font-family: var(--font-display);
-  font-size: 1.15rem;
+  font-size: 4rem;
   font-weight: 900;
-  letter-spacing: 3px;
+  letter-spacing: 6px;
   text-transform: uppercase;
   color: var(--finals-green-text);
   line-height: 1;
@@ -2477,9 +2477,9 @@ html, body {
   .finals-mode-badge {
     top: 10px;
     right: 10px;
-    padding: 8px 14px;
-    font-size: 0.95rem;
-    letter-spacing: 2px;
+    padding: 16px 32px;
+    font-size: 2.5rem;
+    letter-spacing: 4px;
   }
 }
 
