@@ -47,7 +47,7 @@ export function renderSetup(app, onConfirm, onContinue) {
                   <span class="field-icon">⏱</span>
                   זמן ריצה (דק׳)
                 </label>
-                <input type="number" class="duration-input" min="1" max="99" value="${countdownMinutes}" />
+                <input type="number" class="duration-input" min="0.5" max="99" step="0.5" value="${countdownMinutes}" />
               </div>
               ` : ''}
             </div>
@@ -183,8 +183,8 @@ export function renderSetup(app, onConfirm, onContinue) {
     const durationInput = app.querySelector('.duration-input');
     if (durationInput) {
       durationInput.addEventListener('change', (e) => {
-        const val = parseInt(e.target.value, 10);
-        if (val >= 1 && val <= 99) {
+        const val = parseFloat(e.target.value);
+        if (val >= 0.5 && val <= 99) {
           countdownMinutes = val;
           saveCountdownMinutes(val);
         } else {
@@ -350,8 +350,8 @@ export function renderSetup(app, onConfirm, onContinue) {
         if (APP_MODE.useCountdownTimer) {
           const dInput = app.querySelector('.duration-input');
           if (dInput) {
-            const val = parseInt(dInput.value, 10);
-            if (val >= 1 && val <= 99) countdownMinutes = val;
+            const val = parseFloat(dInput.value);
+            if (val >= 0.5 && val <= 99) countdownMinutes = val;
           }
           saveCountdownMinutes(countdownMinutes);
         }

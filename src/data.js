@@ -217,7 +217,7 @@ function clearRuns() {
 function loadCountdownMinutes() {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.COUNTDOWN_MINUTES);
-    const val = raw ? parseInt(raw, 10) : 2;
+    const val = raw ? parseFloat(raw) : 2;
     return (val > 0 && val <= 99) ? val : 2;
   } catch {
     return 2;
@@ -225,7 +225,7 @@ function loadCountdownMinutes() {
 }
 
 function saveCountdownMinutes(minutes) {
-  const val = Math.max(1, Math.min(99, parseInt(minutes, 10) || 2));
+  const val = Math.max(0.5, Math.min(99, parseFloat(minutes) || 2));
   localStorage.setItem(STORAGE_KEYS.COUNTDOWN_MINUTES, String(val));
 }
 
