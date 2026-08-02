@@ -1589,6 +1589,7 @@ html, body {
 .scoreboard-card {
   border-color: var(--border-mid);
   box-shadow: 0 4px 24px rgba(0, 0, 20, 0.6), 0 0 32px rgba(30, 82, 224, 0.06);
+  overflow: hidden;
 }
 
 .scoreboard-header {
@@ -1724,7 +1725,7 @@ html, body {
 }
 
 .scoreboard-table tbody tr:hover {
-  background: rgba(35, 86, 200, 0.06);
+  background: #0d1a3e;
 }
 
 .scoreboard-table td {
@@ -1740,7 +1741,7 @@ html, body {
   position: sticky;
   right: 0;
   z-index: 2;
-  background: var(--navy-deep);
+  background: #0c1838;
 }
 
 .scoreboard-table .th-rank {
@@ -1750,7 +1751,7 @@ html, body {
   font-size: 0.75rem;
   letter-spacing: 0.08em;
   z-index: 3;
-  background: var(--navy-deep);
+  background: #0a1530;
 }
 
 .scoreboard-table .td-rank {
@@ -1759,7 +1760,7 @@ html, body {
   font-weight: 800;
   white-space: nowrap;
   z-index: 2;
-  background: var(--navy);
+  background: #0c1838;
 }
 
 .scoreboard-table .th-order,
@@ -1767,15 +1768,16 @@ html, body {
   position: sticky;
   right: 3.5rem;
   z-index: 2;
-  background: var(--navy-deep);
+  background: #0c1838;
 }
 
 .scoreboard-table .th-order {
   z-index: 3;
+  background: #0a1530;
 }
 
 .scoreboard-table .td-order {
-  background: var(--navy);
+  background: #0c1838;
 }
 
 .scoreboard-table .th-name,
@@ -1783,19 +1785,19 @@ html, body {
   position: sticky;
   right: 6rem;
   z-index: 2;
-  background: var(--navy-deep);
-  box-shadow: -4px 0 12px rgba(0, 0, 0, 0.4);
+  background: #0c1838;
+  box-shadow: -4px 0 12px rgba(0, 0, 0, 0.5);
   border-left: 2px solid var(--border-mid);
 }
 
 .scoreboard-table .th-name {
   z-index: 3;
-  background: var(--navy-deep);
+  background: #0a1530;
 }
 
 .scoreboard-table .td-name {
   z-index: 2;
-  background: var(--navy);
+  background: #0c1838;
 }
 
 /* Podium sticky-cell backgrounds — opaque equivalents of the row
@@ -1803,28 +1805,28 @@ html, body {
    through to the default opaque navy, so K>3 just works. */
 .row-rank-1 .td-rank,
 .row-rank-1 .td-order,
-.row-rank-1 .td-name            { background: #25272a; }
+.row-rank-1 .td-name            { background: #2a2c20; }
 .row-rank-1:hover .td-rank,
 .row-rank-1:hover .td-order,
-.row-rank-1:hover .td-name      { background: #323127; }
+.row-rank-1:hover .td-name      { background: #383828; }
 .row-rank-2 .td-rank,
 .row-rank-2 .td-order,
-.row-rank-2 .td-name            { background: #1d2743; }
+.row-rank-2 .td-name            { background: #1a2850; }
 .row-rank-2:hover .td-rank,
 .row-rank-2:hover .td-order,
-.row-rank-2:hover .td-name      { background: #28334f; }
+.row-rank-2:hover .td-name      { background: #253560; }
 .row-rank-3 .td-rank,
 .row-rank-3 .td-order,
-.row-rank-3 .td-name            { background: #1e1f30; }
+.row-rank-3 .td-name            { background: #221e35; }
 .row-rank-3:hover .td-rank,
 .row-rank-3:hover .td-order,
-.row-rank-3:hover .td-name      { background: #292530; }
+.row-rank-3:hover .td-name      { background: #2e2838; }
 .row-dnf .td-rank,
 .row-dnf .td-order,
-.row-dnf .td-name               { background: var(--navy); }
+.row-dnf .td-name               { background: #0c1838; }
 .scoreboard-table tbody tr:hover .td-rank,
 .scoreboard-table tbody tr:hover .td-order,
-.scoreboard-table tbody tr:hover .td-name { background: #0b1839; }
+.scoreboard-table tbody tr:hover .td-name { background: #101e45; }
 /* Podium hover overrides above are more specific, so they win. */
 
 .th-order {
@@ -1906,26 +1908,26 @@ html, body {
 
 /* ── Podium Rows — top 3 rank highlights ────────────── */
 .row-rank-1 {
-  background: var(--podium-gold);
+  background: #1e1c12;
   border-right: 3px solid var(--gold-text);
 }
-.row-rank-1:hover { background: rgba(232, 181, 0, 0.18); }
+.row-rank-1:hover { background: #2a2818; }
 .row-rank-1 .td-rank { color: var(--gold-text); filter: drop-shadow(0 0 6px rgba(232, 181, 0, 0.6)); }
 .row-rank-1 .td-name { color: var(--gold-text); }
 
 .row-rank-2 {
-  background: var(--podium-silver);
+  background: #101a38;
   border-right: 3px solid var(--silver-text);
 }
-.row-rank-2:hover { background: rgba(200, 212, 240, 0.16); }
+.row-rank-2:hover { background: #182445; }
 .row-rank-2 .td-rank { color: var(--silver-text); filter: drop-shadow(0 0 5px rgba(200, 212, 240, 0.5)); }
 .row-rank-2 .td-name { color: var(--chrome-hi); }
 
 .row-rank-3 {
-  background: var(--podium-bronze);
+  background: #1a1520;
   border-right: 3px solid var(--bronze-text);
 }
-.row-rank-3:hover { background: rgba(205, 127, 50, 0.16); }
+.row-rank-3:hover { background: #241c2a; }
 .row-rank-3 .td-rank { color: var(--bronze-text); filter: drop-shadow(0 0 5px rgba(205, 127, 50, 0.5)); }
 .row-rank-3 .td-name { color: var(--bronze-text); }
 

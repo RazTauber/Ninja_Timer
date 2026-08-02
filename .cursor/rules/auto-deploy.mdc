@@ -1,0 +1,23 @@
+---
+description: Ensures every commit+push to master is followed by a production deployment, and every deploy request includes commit+push first.
+globs:
+alwaysApply: true
+---
+
+# Auto-Deploy Rule for Ninja Timer
+
+This project uses manual deployment to Cloudflare Pages. The user is not familiar with DevOps workflows, so the AI must handle deployment automatically.
+
+## Rules
+
+1. **After every commit + push**: Always follow up with a production deployment (`npm run build` then `npx wrangler pages deploy dist --project-name ninja-timer --branch master`).
+
+2. **When the user asks to "deploy"**: Also commit any uncommitted changes and push to GitHub first, then deploy.
+
+3. **When the user asks to "commit" or "push"**: Also deploy to production afterward.
+
+4. **Never use `--branch production`** — the production branch in Cloudflare Pages is `master`. Using any other branch name creates a Preview deployment that does NOT go to the live URL.
+
+5. **Always verify** the deploy output shows "Deployment complete" before telling the user it's live.
+
+6. The live URL is: https://ninja-timer.pages.dev/
