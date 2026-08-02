@@ -1589,7 +1589,6 @@ html, body {
 .scoreboard-card {
   border-color: var(--border-mid);
   box-shadow: 0 4px 24px rgba(0, 0, 20, 0.6), 0 0 32px rgba(30, 82, 224, 0.06);
-  overflow: hidden;
 }
 
 .scoreboard-header {
@@ -1742,6 +1741,7 @@ html, body {
   right: 0;
   z-index: 2;
   background: #0c1838;
+  backface-visibility: hidden;
 }
 
 .scoreboard-table .th-rank {
@@ -1769,6 +1769,7 @@ html, body {
   right: 3.5rem;
   z-index: 2;
   background: #0c1838;
+  backface-visibility: hidden;
 }
 
 .scoreboard-table .th-order {
@@ -1788,6 +1789,7 @@ html, body {
   background: #0c1838;
   box-shadow: -4px 0 12px rgba(0, 0, 0, 0.5);
   border-left: 2px solid var(--border-mid);
+  backface-visibility: hidden;
 }
 
 .scoreboard-table .th-name {
