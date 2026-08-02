@@ -23,7 +23,7 @@ export function renderExport(app, onBack) {
             <div class="run-card">
               <div class="run-card-header">
                 <span class="run-card-name">${esc(run.contestantName)}</span>
-                <span class="run-card-time ${finished ? '' : 'dnf-label'}">${finished ? formatSeconds(run.totalTime) : 'נפילה'}</span>
+                <span class="run-card-time ${finished ? '' : 'dnf-label'}">${finished ? formatSeconds(run.totalTime) : (run.events && run.events.some(e => e.type === 'TIME_EXPIRED') ? 'נגמר הזמן' : 'נפילה')}</span>
               </div>
               <div class="run-card-stats">
                 ${passed.length}/${obstacles.length} מכשולים

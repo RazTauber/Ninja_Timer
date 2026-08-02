@@ -347,6 +347,14 @@ export function renderSetup(app, onConfirm, onContinue) {
         savePlayers(playerList);
         saveCompDate(compDate);
         saveHeatNumber(heatNumber);
+        if (APP_MODE.useCountdownTimer) {
+          const dInput = app.querySelector('.duration-input');
+          if (dInput) {
+            const val = parseInt(dInput.value, 10);
+            if (val >= 1 && val <= 99) countdownMinutes = val;
+          }
+          saveCountdownMinutes(countdownMinutes);
+        }
         registerHeat(compDate, heatNumber);
         markSessionActive();
         onConfirm(selectedList);

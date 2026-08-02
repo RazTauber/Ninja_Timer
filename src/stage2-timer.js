@@ -696,8 +696,14 @@ export function renderTimer(app, obstacles, onFinish) {
 
   function handleObstacleStart(obstacleIndex) {
     if (!activeRun) return;
+    if (activeRun.finished) return;
     const obstacleName = obstacles[obstacleIndex];
     if (activeRun.events.some(e => e.type === 'OBSTACLE_START' && e.obstacle === obstacleName)) return;
+
+    if (APP_MODE.useCountdownTimer && activeRun.timerStarted) {
+      const elapsed = Date.now() - activeRun.startTime;
+      if (elapsed >= countdownLimitMs) return;
+    }
 
     if (!activeRun.timerStarted) {
       const now = Date.now();
@@ -717,6 +723,7 @@ export function renderTimer(app, obstacles, onFinish) {
   function handlePass(obstacleIndex, pressStart) {
     if (!activeRun || activeRun.finished) return;
     if (obstacleIndex !== activeRun.currentObstacleIndex) return;
+    if (APP_MODE.useCountdownTimer && activeRun.timerStarted && (Date.now() - activeRun.startTime) >= countdownLimitMs) return;
     const obstacleName = obstacles[obstacleIndex];
     if (activeRun.events.some(e => e.type === 'PASSED' && e.obstacle === obstacleName)) return;
 
@@ -763,6 +770,7 @@ export function renderTimer(app, obstacles, onFinish) {
   function handleFall(obstacleIndex, pressStart) {
     if (!activeRun || activeRun.finished) return;
     if (obstacleIndex !== activeRun.currentObstacleIndex) return;
+    if (APP_MODE.useCountdownTimer && activeRun.timerStarted && (Date.now() - activeRun.startTime) >= countdownLimitMs) return;
     const obstacleName = obstacles[obstacleIndex];
     if (activeRun.events.some(e => e.type === 'FALL' && e.obstacle === obstacleName)) return;
 
