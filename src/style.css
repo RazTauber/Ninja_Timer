@@ -1916,6 +1916,37 @@ html, body {
 .row-dnf td { opacity: 0.65; }
 .row-dnf .td-wall-fail { opacity: 1; }
 
+/* ── Status Column (Finals) ───────────────────────── */
+.th-status {
+  text-align: center;
+  width: 4.5rem;
+  font-size: 0.85rem;
+}
+
+.td-status {
+  text-align: center;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.td-status-buzzer {
+  color: var(--gold-text);
+  filter: drop-shadow(0 0 6px rgba(232, 181, 0, 0.6));
+  font-size: 1.3rem;
+  opacity: 1;
+}
+
+.td-status-fall {
+  color: var(--red);
+  background: var(--red-soft);
+  font-size: 1.2rem;
+  font-weight: 900;
+  opacity: 1;
+}
+
+.row-dnf .td-status-fall { opacity: 1; }
+.row-dnf .td-status-buzzer { opacity: 1; }
+
 /* ── Podium Rows — top 3 rank highlights ────────────── */
 .row-rank-1 {
   background: #1e1c12;

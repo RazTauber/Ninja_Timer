@@ -1004,6 +1004,7 @@ export function renderTimer(app, obstacles, onFinish) {
                   <th class="th-name">מתחרה</th>
                   ${obstacles.map((o, i) => `<th class="th-obstacle"><span class="th-num">${i + 1}</span><span class="th-he">${o}</span><span class="th-en">${OBSTACLE_EN.get(o) || ''}</span></th>`).join('')}
                   ${APP_MODE.hasWallStage ? '<th class="th-mega" title="תוצאת קיר">קיר</th>' : ''}
+                  ${APP_MODE.useCountdownTimer ? '<th class="th-status" title="סטטוס סיום">סטטוס</th>' : ''}
                   <th>סה"כ</th>
                 </tr>
               </thead>
@@ -1055,6 +1056,12 @@ export function renderTimer(app, obstacles, onFinish) {
                           return `<td class="td-wall td-wall-fail">${wallStartTime}</td>`;
                         }
                         return '<td class="td-wall td-empty">-</td>';
+                      })() : ''}
+                      ${APP_MODE.useCountdownTimer ? (() => {
+                        const hasFall = run.events.some(e => e.type === 'FALL');
+                        if (!isDNF) return '<td class="td-status td-status-buzzer">🔔</td>';
+                        if (hasFall) return '<td class="td-status td-status-fall">✕</td>';
+                        return '<td class="td-status td-empty">-</td>';
                       })() : ''}
                       <td class="td-total ${isDNF ? 'td-dnf' : ''}">${formatSeconds(run.totalTime)}</td>
                     </tr>
