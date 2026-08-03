@@ -2574,6 +2574,7 @@ html, body {
 }
 
 .timer-value.timer-remaining-critical {
-  color: var(--red);
+  color: var(--white);
+  text-shadow: 0 0 18px rgba(255, 255, 255, 0.9), 0 0 40px rgba(255, 60, 60, 0.7);
   animation: timer-critical-pulse 0.8s ease-in-out infinite;
 }
