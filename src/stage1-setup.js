@@ -1,6 +1,26 @@
 import { ALL_OBSTACLES, OBSTACLE_EN, MAX_OBSTACLES, MIN_OBSTACLES, loadObstacles, saveObstacles, loadCompDate, saveCompDate, getTodayISO, loadHeatNumber, saveHeatNumber, getNextHeatNumber, registerHeat, loadPlayers, savePlayers, clearLastHeatData, hasLastHeatData, markSessionActive, loadCountdownMinutes, saveCountdownMinutes, esc } from './data.js';
 import { APP_MODE } from './mode.js';
 
+function minutesToMmSs(minutes) {
+  const m = Math.floor(minutes);
+  const s = Math.round((minutes - m) * 60);
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
+
+function parseMmSs(str) {
+  const trimmed = str.trim();
+  const match = trimmed.match(/^(\d{1,2}):(\d{2})$/);
+  if (match) {
+    const m = parseInt(match[1], 10);
+    const s = parseInt(match[2], 10);
+    if (s >= 60) return null;
+    return m + s / 60;
+  }
+  const num = parseFloat(trimmed);
+  if (!isNaN(num) && num > 0) return num;
+  return null;
+}
+
 export function renderSetup(app, onConfirm, onContinue) {
   let selectedList = [];
   let playerList = loadPlayers();
@@ -45,9 +65,9 @@ export function renderSetup(app, onConfirm, onContinue) {
               <div class="duration-field">
                 <label class="field-label">
                   <span class="field-icon">⏱</span>
-                  זמן ריצה (דק׳)
+                  זמן ריצה
                 </label>
-                <input type="number" class="duration-input" min="0.5" max="99" step="0.5" value="${countdownMinutes}" />
+                <input type="text" class="duration-input" placeholder="MM:SS" value="${minutesToMmSs(countdownMinutes)}" />
               </div>
               ` : ''}
             </div>
@@ -183,12 +203,13 @@ export function renderSetup(app, onConfirm, onContinue) {
     const durationInput = app.querySelector('.duration-input');
     if (durationInput) {
       durationInput.addEventListener('change', (e) => {
-        const val = parseFloat(e.target.value);
-        if (val >= 0.5 && val <= 99) {
-          countdownMinutes = val;
-          saveCountdownMinutes(val);
+        const parsed = parseMmSs(e.target.value);
+        if (parsed !== null && parsed >= 0.5 && parsed <= 99) {
+          countdownMinutes = parsed;
+          saveCountdownMinutes(parsed);
+          e.target.value = minutesToMmSs(parsed);
         } else {
-          e.target.value = countdownMinutes;
+          e.target.value = minutesToMmSs(countdownMinutes);
         }
       });
     }
@@ -353,8 +374,8 @@ export function renderSetup(app, onConfirm, onContinue) {
         if (APP_MODE.useCountdownTimer) {
           const dInput = app.querySelector('.duration-input');
           if (dInput) {
-            const val = parseFloat(dInput.value);
-            if (val >= 0.5 && val <= 99) countdownMinutes = val;
+            const val = parseMmSs(dInput.value);
+            if (val !== null && val >= 0.5 && val <= 99) countdownMinutes = val;
           }
           saveCountdownMinutes(countdownMinutes);
         }
@@ -370,8 +391,8 @@ export function renderSetup(app, onConfirm, onContinue) {
         if (APP_MODE.useCountdownTimer) {
           const dInput = app.querySelector('.duration-input');
           if (dInput) {
-            const val = parseFloat(dInput.value);
-            if (val >= 0.5 && val <= 99) countdownMinutes = val;
+            const val = parseMmSs(dInput.value);
+            if (val !== null && val >= 0.5 && val <= 99) countdownMinutes = val;
           }
           saveCountdownMinutes(countdownMinutes);
         }

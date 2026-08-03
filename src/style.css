@@ -2551,8 +2551,9 @@ html, body {
   border: 1px solid var(--border);
   border-radius: 10px;
   color: var(--offwhite);
-  font-family: var(--font-main);
-  font-size: 1rem;
+  font-family: 'Courier New', 'Consolas', monospace;
+  font-size: 1.2rem;
+  letter-spacing: 2px;
   outline: none;
   transition: border-color 0.15s, box-shadow 0.15s;
   direction: ltr;
