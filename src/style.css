@@ -1957,6 +1957,13 @@ html, body {
 .row-dnf .td-status-fall { opacity: 1; }
 .row-dnf .td-status-buzzer { opacity: 1; }
 
+.td-status-time {
+  color: var(--gray);
+  font-size: 1.2rem;
+  opacity: 1;
+}
+.row-dnf .td-status-time { opacity: 1; }
+
 /* ── Podium Rows — top 3 rank highlights ────────────── */
 .row-rank-1 {
   background: #1e1c12;

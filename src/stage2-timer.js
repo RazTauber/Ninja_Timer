@@ -1059,8 +1059,10 @@ export function renderTimer(app, obstacles, onFinish) {
                       })() : ''}
                       ${APP_MODE.useCountdownTimer ? (() => {
                         const hasFall = run.events.some(e => e.type === 'FALL');
+                        const timeExpired = run.events.some(e => e.type === 'TIME_EXPIRED');
                         if (!isDNF) return '<td class="td-status td-status-buzzer">🔔</td>';
                         if (hasFall) return '<td class="td-status td-status-fall">✕</td>';
+                        if (timeExpired) return '<td class="td-status td-status-time">⏱</td>';
                         return '<td class="td-status td-empty">-</td>';
                       })() : ''}
                       <td class="td-total ${isDNF ? 'td-dnf' : ''}">${formatSeconds(run.totalTime)}</td>
